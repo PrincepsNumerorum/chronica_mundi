@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CHRONICA MUNDI 世界史講義アトラス</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Old+Mincho:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/css/app.css">
+<script>
+  // apply saved theme before paint
+  try { var s = JSON.parse(localStorage.getItem('cm.settings') || '{}');
+    if (s.theme && s.theme !== 'system') document.documentElement.setAttribute('data-theme', s.theme);
+    if (s.font) document.documentElement.setAttribute('data-font', s.font);
+    if (s.size) document.documentElement.setAttribute('data-size', s.size);
+    if (s.ruby === false) document.documentElement.setAttribute('data-ruby', 'off');
+    if (s.imp === false) document.documentElement.setAttribute('data-imp', 'off');
+  } catch (e) {}
+</script>
+</head>
+<body>
+<header id="topbar">
+  <a class="brand" href="#/">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">CHRONICA MUNDI</span>
+    <span class="brand-sub">世界史講義アトラス</span>
+  </a>
+  <nav id="mainnav" aria-label="メインメニュー">
+    <a href="#/" data-nav="home">目次</a>
+    <a href="#/atlas" data-nav="atlas">歴史地図</a>
+    <a href="#/timeline" data-nav="timeline">年表</a>
+    <a href="#/battles" data-nav="battles">戦史</a>
+    <a href="#/terms" data-nav="terms">用語索引</a>
+    <a href="#/topics" data-nav="topics">トピックス</a>
+    <a href="#/museum" data-nav="museum">博物館</a>
+  </nav>
+  <form id="searchform" role="search">
+    <input id="searchbox" type="search" placeholder="用語・人物・出来事を検索" autocomplete="off" aria-label="サイト内検索">
+  </form>
+  <button id="settingsbtn" class="iconbtn" type="button" aria-label="表示設定" title="表示設定">
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 8.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 0 0 0-7Zm8.6 4.9l-1.9-.4a6.9 6.9 0 0 1-.6 1.5l1.1 1.6l-1.6 1.6l-1.6-1.1c-.5.3-1 .5-1.5.6l-.4 1.9h-2.2l-.4-1.9a6.9 6.9 0 0 1-1.5-.6l-1.6 1.1l-1.6-1.6l1.1-1.6c-.3-.5-.5-1-.6-1.5l-1.9-.4v-2.2l1.9-.4c.1-.5.3-1 .6-1.5L5.5 6.9l1.6-1.6l1.6 1.1c.5-.3 1-.5 1.5-.6l.4-1.9h2.2l.4 1.9c.5.1 1 .3 1.5.6l1.6-1.1l1.6 1.6l-1.1 1.6c.3.5.5 1 .6 1.5l1.9.4z"/></svg>
+  </button>
+</header>
+<main id="view" tabindex="-1"></main>
+<aside id="drawer" hidden aria-label="用語解説">
+  <div class="drawer-head">
+    <button type="button" class="iconbtn" id="drawerback" aria-label="戻る" hidden>←</button>
+    <span class="drawer-title">用語解説</span>
+    <a id="draweropen" class="drawer-open" href="#/terms">索引で開く</a>
+    <button type="button" class="iconbtn" id="drawerclose" aria-label="閉じる">×</button>
+  </div>
+  <div id="drawerbody" class="drawer-body"></div>
+</aside>
+<div id="settings" class="popover" hidden>
+  <h3>表示設定</h3>
+  <label>配色
+    <select id="set-theme"><option value="system">端末に合わせる</option><option value="light">明るい</option><option value="dark">黒</option><option value="navy">ダークブルー</option></select>
+  </label>
+  <label>本文の書体
+    <select id="set-font"><option value="gothic">ゴシック体</option><option value="mincho">明朝体</option></select>
+  </label>
+  <label>文字の大きさ
+    <select id="set-size"><option value="s">小</option><option value="m">中</option><option value="l">大</option><option value="xl">特大</option></select>
+  </label>
+  <label class="check"><input type="checkbox" id="set-ruby" checked> 難読語にふりがなを表示</label>
+  <label class="check"><input type="checkbox" id="set-imp" checked> 重要箇所に黄色のマーカーを表示</label>
+  <label class="check"><input type="checkbox" id="set-motion"> 動きを控えめにする</label>
+  <p class="note">設定と学習の記録はこのブラウザ内にのみ保存されます。</p>
+  <button type="button" id="settingsclose" class="btn">閉じる</button>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="assets/js/core.js"></script>
+<script src="assets/js/map.js"></script>
+<script src="assets/js/globe.js"></script>
+<script src="assets/js/battle.js"></script>
+<script src="assets/js/widgets.js"></script>
+<script src="assets/js/lesson.js"></script>
+<script src="assets/js/pages.js"></script>
+<script src="assets/js/museum.js"></script>
+<script src="data/curriculum.js"></script>
+<script src="data/terms/index.js"></script>
+<script src="data/topics.js"></script>
+<script src="data/battles/index.js"></script>
+<script>CM.start();</script>
+</body>
+</html>
