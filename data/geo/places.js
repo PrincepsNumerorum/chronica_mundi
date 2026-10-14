@@ -1,0 +1,1 @@
+CM.data.places({});
