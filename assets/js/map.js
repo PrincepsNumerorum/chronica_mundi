@@ -423,6 +423,10 @@
     /* ---- overlays ---- */
     setOverlays(spec) {
       spec = spec || {};
+      const now0 = performance.now();
+      const prevP = new Set(this.ov.places.map(p => p.id).filter(Boolean)), prevR = new Set(this.ov.routes.map(r => r.id).filter(Boolean));
+      const hadAny = this.ov.places.length || this.ov.routes.length;
+      let newR = 0;
       const resolvePlace = (p) => {
         const d = typeof p === 'string' ? Object.assign({ id: p }, CM.places[p] || {}) : p;
         if (d.lon == null) return null;
@@ -430,6 +434,8 @@
         return Object.assign({}, d, { x, y });
       };
       this.ov.places = (spec.places || []).map(resolvePlace).filter(Boolean);
+      // places that appear while reading fade in
+      this.ov.places.forEach(p => { if (hadAny && p.id && !prevP.has(p.id)) { p.t0 = now0; this.fadeUntil = now0 + 700; } });
       const resolveRoute = (r, i) => {
         const d = typeof r === 'string' ? Object.assign({ id: r }, CM.routes[r] || {}) : Object.assign({}, r);
         if (!d.pts || d.pts.length < 2) return null;
@@ -439,7 +445,10 @@
         let labels = d.pts.map(p => p[2] || null), wpts = pts;
         if (!d.straight && pts.length > 2) { const sm = smoothRoute(pts, labels); wpts = sm.pts; labels = sm.labels; }
         const cum = [0]; for (let k = 1; k < wpts.length; k++) cum.push(cum[k - 1] + Math.hypot(wpts[k][0] - wpts[k - 1][0], wpts[k][1] - wpts[k - 1][1]));
-        return Object.assign({ delay: (d.delay != null ? d.delay : i * 0.35), dur: d.dur || 1.8 }, d, { wpts, cum, labels });
+        const o = Object.assign({ delay: (d.delay != null ? d.delay : i * 0.35), dur: d.dur || 1.8 }, d, { wpts, cum, labels });
+        // a route already on the map stays drawn; only newly added routes animate in
+        if (d.id && prevR.has(d.id)) o.delay = -1e4; else if (hadAny) o.delay = (newR++) * 0.35;
+        return o;
       };
       this.ov.routes = (spec.routes || []).map(resolveRoute).filter(Boolean);
       this.ov.areas = (spec.areas || []).map(a => typeof a === 'string' ? CM.areas[a] : a).filter(Boolean).map(a => {
@@ -507,7 +516,7 @@
         this.dirty = true;
       }
       const routesAnimating = this.ov.routes.some(r => (now - this.routeT0) / 1000 < r.delay + r.dur) || this.ov.routes.some(r => r.flow) || this.ov.pulses.length;
-      if (this.dirty || routesAnimating) { this.draw(now); this.dirty = false; }
+      if (this.dirty || routesAnimating || (this.fadeUntil && now < this.fadeUntil + 50)) { this.draw(now); this.dirty = false; }
       requestAnimationFrame(this.loop);
     }
     eachWrap(fn) {
@@ -644,6 +653,8 @@
       for (const p of this.ov.places) {
         const s = this.worldToScreen(p.x, p.y);
         if (s[0] < -20 || s[0] > this.cw + 20 || s[1] < -20 || s[1] > this.ch + 20) continue;
+        const fa = p.t0 ? CM.clamp((now - p.t0) / 600, 0, 1) : 1;
+        g.globalAlpha = fa;
         const k = p.k || 'city', ink = dark ? '#e5e3dc' : '#1b2130', acc = CM.sideColor(p.c || (k === 'battle' ? 'a' : 'f'));
         g.lineWidth = 1.5;
         if (k === 'battle') {
@@ -662,7 +673,8 @@
         const txt = p.ja + (p.note ? ' ' + p.note : '');
         const c0 = [[8, -7, 'left'], [-8, -7, 'right'], [8, 8, 'left'], [-8, 8, 'right'], [0, -15, 'center'], [0, 15, 'center'], [10, -19, 'left'], [-10, -19, 'right'], [10, 20, 'left'], [-10, 20, 'right'], [0, -28, 'center'], [0, 28, 'center']];
         if (p.lx != null || p.ly != null) { const dx = p.lx != null ? p.lx : 8, dy = p.ly != null ? p.ly : -7; c0.unshift([dx, dy, dx < 0 ? 'right' : dx > 0 ? 'left' : 'center']); }
-        Q.push({ pri: k === 'capital' ? 0 : 1, text: txt, x: s[0], y: s[1], size: p.size || 12.5, color: ink, weight: k === 'capital' ? '700' : '500', cands: c0, must: k === 'capital' || k === 'battle' || k === 'event' });
+        Q.push({ pri: k === 'capital' ? 0 : 1, text: txt, x: s[0], y: s[1], size: p.size || 12.5, color: ink, weight: k === 'capital' ? '700' : '500', cands: c0, must: k === 'capital' || k === 'battle' || k === 'event', alpha: fa });
+        g.globalAlpha = 1;
       }
       // ---- collision-aware label placement ----
       const tv = CM.tv(), hit = (b) => boxes.some(o => b[0] < o[0] + o[2] && b[0] + b[2] > o[0] && b[1] < o[1] + o[3] && b[1] + b[3] > o[1]);
@@ -681,7 +693,9 @@
         if (!best && q.must) { const c = q.cands[0], x = q.x + c[0], y = q.y + c[1]; best = [c, [c[2] === 'left' ? x - 2 : c[2] === 'right' ? x - w + 2 : x - w / 2, y - h / 2, w, h]]; }
         if (!best) continue;
         boxes.push(best[1]);
+        if (q.alpha != null && q.alpha < 1) g.globalAlpha = q.alpha;
         this.textHalo(g, q.text, q.x + best[0][0], q.y + best[0][1], q.size, q.color, q.weight, best[0][2], q.italic);
+        g.globalAlpha = 1;
       }
       this.placeBoxes = boxes;
     }

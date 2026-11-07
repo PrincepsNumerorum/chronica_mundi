@@ -21,6 +21,63 @@
   };
   const svgBox = (host, w, h) => S('svg', { viewBox: '0 0 ' + w + ' ' + h, width: '100%', role: 'img' }, host, 'display:block;max-width:' + w + 'px;margin:0 auto;font-family:var(--font-body)');
   const txt = (p, s, x, y, size, style, anchor) => { const t = S('text', { x, y, 'text-anchor': anchor || 'middle', 'dominant-baseline': 'middle' }, p, 'font-size:' + (size || 13) + 'px;fill:var(--ink);' + (style || '')); t.textContent = s; return t; };
+  /* move movable labels (el._cands = [[x,y],...]) so they do not overlap other labels or boxes */
+  function declutter(svg, movable) {
+    const run = () => {
+      if (!svg.isConnected) return;
+      let probe; try { probe = svg.getBBox(); } catch (e) { return; }
+      if (!probe.width) { requestAnimationFrame(() => setTimeout(run, 200)); return; }
+      const inv = svg.getScreenCTM() && svg.getScreenCTM().inverse();
+      const bb = (el) => {
+        try {
+          const b = el.getBBox(), sm = el.getScreenCTM(); if (!inv || !sm) return [b.x - 1.5, b.y - 1, b.width + 3, b.height + 2];
+          const m = inv.multiply(sm), pt = (x, y) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f];
+          const c = [pt(b.x, b.y), pt(b.x + b.width, b.y), pt(b.x, b.y + b.height), pt(b.x + b.width, b.y + b.height)];
+          const xs = c.map(q => q[0]), ys = c.map(q => q[1]), x0 = Math.min(...xs), y0 = Math.min(...ys);
+          return [x0 - 1.5, y0 - 1, Math.max(...xs) - x0 + 3, Math.max(...ys) - y0 + 2];
+        } catch (e) { return null; }
+      };
+      const hit = (a, o) => a[0] < o[0] + o[2] && a[0] + a[2] > o[0] && a[1] < o[1] + o[3] && a[1] + a[3] > o[1];
+      const mov = new Set(movable);
+      const fixed = [];
+      svg.querySelectorAll('text').forEach(el => { if (!mov.has(el)) { const b = bb(el); if (b && b[2] > 1) fixed.push(b); } });
+      svg.querySelectorAll('rect[data-box]').forEach(el => { const b = bb(el); if (b) fixed.push(b); });
+      movable.forEach(el => {
+        const x0 = +el.getAttribute('x'), y0 = +el.getAttribute('y');
+        const cands = (el._cands || []).concat([[x0, y0]]);
+        const extra = [];
+        cands.forEach(c => [[0, 0], [0, -11], [0, 11], [0, -22], [0, 22], [16, 0], [-16, 0]].forEach(d => extra.push([c[0] + d[0], c[1] + d[1]])));
+        let best = null;
+        for (const c of extra) {
+          el.setAttribute('x', c[0]); el.setAttribute('y', c[1]);
+          const b = bb(el); if (!b) break;
+          if (!fixed.some(o => hit(b, o))) { best = b; break; }
+        }
+        if (!best) { el.setAttribute('x', (el._cands && el._cands[0] ? el._cands[0][0] : x0)); el.setAttribute('y', (el._cands && el._cands[0] ? el._cands[0][1] : y0)); best = bb(el); }
+        if (best) fixed.push(best);
+      });
+    };
+    requestAnimationFrame(run);
+  }
+  /* wrap a centered svg label into two lines / shrink it so that it fits a width */
+  function fitLabel(el, maxW) {
+    try {
+      if (el.getComputedTextLength() <= maxW) return 1;
+      const s = el.textContent; let cut = -1;
+      const sp = [...s.matchAll(/[ 　・（(]/g)].map(m => m.index).filter(i => i > 0);
+      if (sp.length) cut = sp.reduce((a, b) => Math.abs(b - s.length / 2) < Math.abs(a - s.length / 2) ? b : a);
+      if (cut < 0) cut = Math.ceil(s.length / 2);
+      const keep = /[・ 　]/.test(s[cut]) ? 1 : 0;
+      const a = s.slice(0, cut + keep).trim(), b = s.slice(cut + keep).trim();
+      const x = el.getAttribute('x'), fs = parseFloat(el.style.fontSize) || 11;
+      el.textContent = '';
+      const t1 = S('tspan', { x, dy: -fs * 0.55 }, el); t1.textContent = a;
+      const t2 = S('tspan', { x, dy: fs * 1.15 }, el); t2.textContent = b;
+      const w = Math.max(t1.getComputedTextLength(), t2.getComputedTextLength());
+      if (w > maxW) el.style.fontSize = (fs * maxW / w).toFixed(1) + 'px';
+      return 2;
+    } catch (e) { return 1; }
+  }
   const esc = (s) => CM.esc(String(s));
 
   /* run fn(dt) on rAF only while host is visible and attached */
@@ -791,7 +848,7 @@
     const ctl = steps.length ? H('div', 'wctl', host, '<button type="button" class="wprev" aria-label="前へ">◀</button><button type="button" class="wnext">' + (p.stepLabel || '次の統治者へ') + ' ▶</button><span class="wstep"></span><button type="button" class="wall">全体を表示</button>') : null;
     const svg = S('svg', { viewBox: minX + ' ' + (-14) + ' ' + VW + ' ' + (maxY + 14), width: '100%', role: 'img' }, host, 'display:block;max-width:' + VW + 'px;margin:0 auto;font-family:var(--font-body)');
     const out = H('div', 'wout', host);
-    const gL = S('g', {}, svg), gN = S('g', {}, svg);
+    const gL = S('g', {}, svg), gN = S('g', {}, svg), gLab = S('g', {}, svg, 'pointer-events:none'), linkLabs = [];
     const col = (c) => c ? CM.sideColor(c) : 'var(--ink-3)';
     const linkEls = [];
     (p.links || []).forEach(([a, b, t, lab, ymo]) => {
@@ -806,13 +863,13 @@
         st = 'fill:none;stroke-linejoin:round;stroke:' + (t === 'adopt' ? 'var(--accent)' : t === 'claim' ? 'var(--ink-3)' : 'var(--ink-2)') + ';stroke-width:' + (t === 'adopt' ? 2.2 : t === 'claim' ? 1.3 : 1.6) + (t === 'adopt' ? ';stroke-dasharray:7 5' : t === 'claim' ? ';stroke-dasharray:2 4' : '');
       }
       const e = S('path', { d }, gL, st); e.dataset.a = a; e.dataset.b = b; linkEls.push(e);
-      if (lab) { const mx = t === 'mar' ? (A.x + B.x) / 2 : B.x + 6, my = t === 'mar' ? A.y - 8 : (ymo != null ? ymo : A.y + NH / 2 + (B.y - NH / 2 - A.y - NH / 2) * 0.5) - 5; txt(gL, lab, mx, my, 11, 'fill:' + (t === 'adopt' ? 'var(--accent)' : 'var(--ink-3)') + ';font-weight:700', t === 'mar' ? 'middle' : 'start'); }
+      if (lab) { const mx = t === 'mar' ? (A.x + B.x) / 2 : B.x + 6, my = t === 'mar' ? A.y - 8 : (ymo != null ? ymo : A.y + NH / 2 + (B.y - NH / 2 - A.y - NH / 2) * 0.5) - 5; const lt = txt(gLab, lab, mx, my, 11, 'fill:' + (t === 'adopt' ? 'var(--accent)' : 'var(--ink-3)') + ';font-weight:700;paint-order:stroke;stroke:var(--paper);stroke-width:3px', t === 'mar' ? 'middle' : 'start'); lt._cands = t === 'mar' ? [[mx, my], [mx, A.y + 14]] : [[mx, my], [B.x - 6 - lab.length * 11, my], [mx, my - 10], [mx, my + 10]]; linkLabs.push(lt); }
     });
     const nodes = {};
     ppl.forEach(q => {
       const w = q.w || NW, g = S('g', { transform: 'translate(' + (q.x - w / 2) + ',' + (q.y - NH / 2) + ')', tabindex: 0, role: 'button' }, gN, 'cursor:pointer');
       const ruler = q.r != null;
-      S('rect', { x: 0, y: 0, width: w, height: NH, rx: 7 }, g, 'fill:var(--paper);stroke:' + col(q.c) + ';stroke-width:' + (ruler ? 2.6 : 1.3) + (q.dash ? ';stroke-dasharray:4 3' : ''));
+      S('rect', { x: 0, y: 0, width: w, height: NH, rx: 7, 'data-box': 1 }, g, 'fill:var(--paper);stroke:' + col(q.c) + ';stroke-width:' + (ruler ? 2.6 : 1.3) + (q.dash ? ';stroke-dasharray:4 3' : ''));
       if (ruler) S('rect', { x: 0, y: 0, width: 6, height: NH, rx: 3 }, g, 'fill:' + col(q.c));
       txt(g, q.n, w / 2 + (ruler ? 3 : 0), q.sub ? 18 : NH / 2, q.fs || 15, 'font-weight:700;fill:' + (ruler ? col(q.c) : 'var(--ink)'));
       if (q.sub) txt(g, q.sub, w / 2 + (ruler ? 3 : 0), 36, 11.5, 'fill:var(--ink-3)');
@@ -837,6 +894,7 @@
       ctl.querySelector('.wall').addEventListener('click', () => { k = -1; apply(); });
     }
     apply();
+    svg.appendChild(gLab); declutter(svg, linkLabs);
     familyChrono(host, p, ppl, byId, nodes, linkEls, out, NW, NH, svg, () => { k = -1; apply(); });
   };
 
@@ -888,7 +946,8 @@
     });
     const allA = Object.values(A).filter(v => v != null);
     let t0 = Math.min(...allA), t1 = Math.max(...ppl.map(q => Math.max(E[q.id] != null ? E[q.id] : -1e9, ...Y[q.id].reigns.map(r => r[1] != null ? r[1] : r[0]), A[q.id] != null ? A[q.id] : -1e9)));
-    ppl.forEach(q => { if (A[q.id] == null) A[q.id] = t0; });
+    const noTime = {};
+    ppl.forEach(q => { if (A[q.id] == null) { A[q.id] = t0; noTime[q.id] = 1; } });
     t0 -= 2; t1 += 3;
     const fy = (y) => CM.fmtYear ? CM.fmtYear(Math.round(y)) : Math.round(y) + '年';
     // events list
@@ -906,23 +965,145 @@
     // UI
     const bar = H('div', 'wctl wchrono', host, '<button type="button" class="cplay">▶ 年代順に再生</button><span class="cyear num" style="font-weight:700;min-width:5.5em;display:inline-block;text-align:center"></span><input type="range" class="cseek" min="0" max="1000" value="0" aria-label="年代" style="flex:1;min-width:120px"><select class="cspd" aria-label="速さ"><option value="0.5">ゆっくり</option><option value="1" selected>標準</option><option value="2">速く</option></select>');
     host.insertBefore(bar, host.querySelector('svg'));
-    // gantt strip of reigns
-    const rulers = ppl.filter(q => Y[q.id].reigns.length).sort((a, b) => Y[a.id].reigns[0][0] - Y[b.id].reigns[0][0]);
-    const GW = 640, rowH = 15, GH = 22 + rulers.length * rowH + 16;
-    const gs = S('svg', { viewBox: '0 0 ' + GW + ' ' + GH, width: '100%' }, null, 'display:block;max-width:' + GW + 'px;margin:8px auto 0;font-family:var(--font-body)');
-    host.insertBefore(gs, out);
-    const GX0 = 150, GX1 = GW - 12, gx = (y) => GX0 + (GX1 - GX0) * (y - t0) / (t1 - t0);
-    const span = t1 - t0, tick = [1, 2, 5, 10, 20, 25, 50, 100, 200, 500].find(s => span / s <= 9) || 1000;
-    for (let y = Math.ceil(t0 / tick) * tick; y <= t1; y += tick) { S('path', { d: 'M' + gx(y) + ',16 V' + (GH - 8) }, gs, 'stroke:var(--rule);stroke-width:1'); txt(gs, y < 0 ? '前' + (-y) : String(y), gx(y), 9, 10, 'fill:var(--ink-3)'); }
-    const gbars = {};
-    rulers.forEach((q, i) => {
-      const y0 = 22 + i * rowH, col = q.c ? CM.sideColor(q.c) : 'var(--ink-2)';
-      txt(gs, q.n, GX0 - 6, y0 + 5, 11, 'fill:var(--ink-2)', 'end');
-      const yy = Y[q.id];
-      if (yy.b != null || yy.d != null) S('path', { d: 'M' + gx(yy.b != null ? yy.b : yy.reigns[0][0]) + ',' + (y0 + 5) + ' H' + gx(yy.d != null ? yy.d : (yy.reigns[yy.reigns.length - 1][1] || yy.reigns[0][0])) }, gs, 'stroke:var(--ink-3);stroke-width:1;stroke-dasharray:2 3');
-      gbars[q.id] = yy.reigns.map(r => S('rect', { x: gx(r[0]), y: y0, width: Math.max(2, gx(r[1] != null ? r[1] : r[0] + 1) - gx(r[0])), height: 10, rx: 2 }, gs, 'fill:' + col + ';opacity:.35'));
-    });
-    const cur = S('path', { d: '' }, gs, 'stroke:var(--accent);stroke-width:2');
+    // ---- lineage river: one lifeline per person on a time axis; it grows as the playhead moves ----
+    const rows = ppl.slice().sort((a, b) => (a.y - b.y) || (a.x - b.x));
+    const rowOf = {}; rows.forEach((q, i) => rowOf[q.id] = i);
+    const RH = 24, TOP = 46, cv = document.createElement('canvas');
+    cv.className = 'wriver'; cv.style.cssText = 'display:block;width:100%;margin:8px 0 0;border:1px solid var(--rule);border-radius:8px;background:var(--paper);cursor:pointer;touch-action:pan-y';
+    const CH = TOP + rows.length * RH + 30;
+    host.insertBefore(cv, out);
+    const relOf = (a, b) => {
+      // relation of the new ruler b to the previous ruler a
+      const L2 = p.links || [];
+      if (L2.some(l => l[0] === a && l[1] === b && l[2] === 'bio')) return '実子';
+      if (L2.some(l => l[0] === a && l[1] === b && l[2] === 'adopt')) return '養子';
+      if (L2.some(l => l[2] === 'mar' && ((l[0] === a && l[1] === b) || (l[0] === b && l[1] === a)))) return '配偶者';
+      if (L2.some(l => l[1] === a && l[0] === b && l[2] !== 'mar')) return '親';
+      const pa = (parents[a] || []), pb = (parents[b] || []);
+      if (pa.some(x => pb.includes(x))) return 'きょうだい';
+      if ((parents[b] || []).some(x => (parents[x] || []).includes(a))) return '孫';
+      if ((spouses[a] || []).some(s => (kids[s] || []).includes(b))) return '配偶者の子';
+      return '';
+    };
+    const accs = evs.filter(e => e.k === 'r');
+    accs.forEach((e, i) => { const prev = accs.slice(0, i).reverse().find(x => x.q.id !== e.q.id); e.prev = prev ? prev.q : null; e.rel = prev ? relOf(prev.q.id, e.q.id) : ''; });
+    const relColor = { '実子': 'var(--ink-2)', '養子': 'var(--accent)', '配偶者': 'var(--ink-3)' };
+    let cw = 640, dpr = 1, X0 = 0, X1 = 0;
+    const fit = () => { cw = Math.max(320, cv.clientWidth || host.clientWidth || 640); dpr = Math.min(2, window.devicePixelRatio || 1); cv.width = cw * dpr; cv.height = CH * dpr; cv.style.height = CH + 'px'; X0 = Math.min(150, cw * 0.26); X1 = cw - 14; };
+    const rx = (y) => X0 + (X1 - X0) * (y - t0) / (t1 - t0);
+    const ry = (q) => TOP + rowOf[q.id] * RH + RH / 2;
+    const cssv = (name, fb) => (getComputedStyle(host).getPropertyValue(name) || '').trim() || fb;
+    const flash = []; // recent events for transient labels
+    const river = (tNow) => {
+      if (!cv.width) fit();
+      const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const ink = cssv('--ink', '#1b2130'), ink3 = cssv('--ink-3', '#7b8190'), rule = cssv('--rule', '#ddd'), acc = cssv('--accent', '#b2432a'), paper = cssv('--paper', '#fff');
+      g.clearRect(0, 0, cw, CH);
+      // axis
+      const span = t1 - t0, tick = [1, 2, 5, 10, 20, 25, 50, 100, 200, 500].find(s => span / s <= Math.max(4, Math.floor((X1 - X0) / 70))) || 1000;
+      g.font = '10px ' + cssv('--font-body', 'sans-serif'); g.textAlign = 'center'; g.textBaseline = 'middle';
+      for (let y = Math.ceil(t0 / tick) * tick; y <= t1; y += tick) { const x = rx(y); g.strokeStyle = rule; g.lineWidth = 1; g.beginPath(); g.moveTo(x, TOP - 6); g.lineTo(x, CH - 18); g.stroke(); g.fillStyle = ink3; if (y !== 0) g.fillText(y < 0 ? '前' + (-y) : String(y), x, CH - 9); }
+      // rows: names
+      g.textAlign = 'right';
+      rows.forEach(q => { const y = ry(q); const seen = tNow >= A[q.id]; g.globalAlpha = seen ? 1 : 0.18; g.fillStyle = q.r != null ? (q.c ? CM.sideColor(q.c) : ink) : ink3; g.font = (q.r != null ? '700 ' : '500 ') + '11.5px ' + cssv('--font-body', 'sans-serif'); g.fillText(q.n, X0 - 8, y); });
+      g.globalAlpha = 1;
+      const grow = Math.max(0.6, span / 60); // fade-in window in years
+      // kinship connectors (drawn when the child appears)
+      (p.links || []).forEach(([a, b, ty]) => {
+        const qa = byId[a], qb = byId[b]; if (!qa || !qb) return;
+        const ya = ry(qa), yb = ry(qb);
+        let x;
+        let tt;
+        if (ty === 'mar') tt = Math.max(A[a], A[b]) + Math.min(18, span * 0.05);
+        else if (ty === 'adopt' || ty === 'claim') {
+          // adoption year is usually not in the data: place it just before the adoptee's accession (or within the adopter's life)
+          const rb = Y[b].reigns.length ? Y[b].reigns[0][0] : null;
+          tt = rb != null ? rb - Math.min(2, span * 0.01) : A[b] + 15;
+          if (E[a] != null) tt = Math.min(tt, E[a]);
+          tt = Math.max(tt, A[b], A[a]);
+        } else tt = Math.max(A[b], A[a]);
+        x = rx(tt);
+        const f = CM.clamp((tNow - tt) / grow, 0, 1); if (f <= 0) return;
+        g.globalAlpha = 0.85 * f; g.strokeStyle = ty === 'adopt' ? acc : ty === 'mar' ? ink3 : cssv('--ink-2', '#4b5363'); g.lineWidth = ty === 'adopt' ? 1.8 : 1.2;
+        g.setLineDash(ty === 'adopt' ? [5, 4] : ty === 'claim' ? [2, 4] : []);
+        g.beginPath(); g.moveTo(x, ya); g.lineTo(x, ya + (yb - ya) * f); g.stroke(); g.setLineDash([]);
+        if (ty === 'mar') { g.beginPath(); g.moveTo(x + 3, ya); g.lineTo(x + 3, ya + (yb - ya) * f); g.stroke(); }
+        g.fillStyle = g.strokeStyle; g.beginPath(); g.arc(x, ya, 2.2, 0, 7); g.fill();
+      });
+      g.globalAlpha = 1;
+      // lifelines and reigns
+      rows.forEach(q => {
+        const y = ry(q), yy = Y[q.id], a0 = A[q.id];
+        if (tNow < a0 || noTime[q.id]) return;
+        const endKnown = E[q.id] != null, e0 = endKnown ? E[q.id] : t1;
+        const tEnd = Math.min(tNow, e0);
+        const col = q.c ? CM.sideColor(q.c) : ink;
+        const dead = endKnown && tNow >= e0;
+        g.globalAlpha = dead ? 0.55 : 1;
+        // life line
+        g.strokeStyle = ink3; g.lineWidth = 2; g.lineCap = 'round';
+        if (yy.b == null) g.setLineDash([3, 3]);
+        g.beginPath(); g.moveTo(rx(a0), y); g.lineTo(rx(tEnd), y); g.stroke(); g.setLineDash([]);
+        // birth dot (pops in)
+        const pf = CM.clamp((tNow - a0) / grow, 0, 1);
+        g.fillStyle = paper; g.strokeStyle = ink3; g.lineWidth = 1.4; g.beginPath(); g.arc(rx(a0), y, 2 + 2.2 * pf, 0, 7); g.fill(); g.stroke();
+        // reigns
+        yy.reigns.forEach(r => {
+          if (tNow < r[0]) return;
+          const r1 = Math.min(tNow, r[1] != null ? r[1] : r[0] + 1);
+          g.fillStyle = col; g.globalAlpha = dead ? 0.6 : 0.92;
+          const x0 = rx(r[0]), x1 = Math.max(x0 + 3, rx(r1));
+          g.beginPath(); g.roundRect ? g.roundRect(x0, y - 6, x1 - x0, 12, 3) : g.rect(x0, y - 6, x1 - x0, 12); g.fill();
+          // crown at accession
+          g.globalAlpha = 1; g.fillStyle = col; g.font = '700 12px ' + cssv('--font-body', 'sans-serif'); g.textAlign = 'center'; g.fillText('♛', x0, y - 12);
+          g.globalAlpha = dead ? 0.6 : 1;
+        });
+        // death mark
+        if (dead) { g.globalAlpha = 0.9; g.fillStyle = ink; g.font = '700 12px ' + cssv('--font-body', 'sans-serif'); g.textAlign = 'center'; g.fillText('†', rx(e0) + 6, y - 1); }
+        g.globalAlpha = 1;
+      });
+      // succession arrows: from the previous ruler's bar to the new ruler's crown, labelled with the relation
+      accs.forEach(e => {
+        if (!e.prev || tNow < e.y) return;
+        const f = CM.clamp((tNow - e.y) / grow, 0, 1);
+        const xa = rx(e.y), ya = ry(e.prev), yb = ry(e.q);
+        g.globalAlpha = 0.25 + 0.55 * f; g.strokeStyle = relColor[e.rel] || acc; g.lineWidth = 1.6;
+        g.beginPath(); g.moveTo(xa - 4, ya); g.bezierCurveTo(xa + 10, ya, xa - 10, yb, xa, yb + (yb > ya ? -7 : 7)); g.stroke();
+        g.globalAlpha = 1;
+      });
+      // transient labels for events that just happened
+      g.textAlign = 'left'; g.font = '700 11.5px ' + cssv('--font-body', 'sans-serif');
+      evs.forEach(e => {
+        if (e.k === 'x') return;
+        const age = tNow - e.y; const life = Math.max(2.5, span / 14);
+        if (age < 0 || age > life) return;
+        const a = age < life * 0.15 ? age / (life * 0.15) : 1 - (age - life * 0.15) / (life * 0.85);
+        const x = rx(e.y), y = ry(e.q) + (e.k === 'r' ? -18 : 14);
+        const label = (e.k === 'r' ? '♛ 即位' + (e.rel ? '（' + (e.prev ? e.prev.n + 'の' : '') + e.rel + '）' : '') : e.k === 'd' ? '† 死去' : e.k === 'b' ? '誕生' : '');
+        if (!label) return;
+        const w = g.measureText(label).width + 10; const bx = Math.min(cw - w - 4, x + 6);
+        g.globalAlpha = Math.max(0, a); g.fillStyle = paper; g.strokeStyle = e.k === 'r' ? (e.q.c ? CM.sideColor(e.q.c) : acc) : ink3; g.lineWidth = 1;
+        g.beginPath(); g.roundRect ? g.roundRect(bx, y - 9, w, 18, 4) : g.rect(bx, y - 9, w, 18); g.fill(); g.stroke();
+        g.fillStyle = e.k === 'r' ? g.strokeStyle : ink; g.fillText(label, bx + 5, y + 0.5);
+        g.globalAlpha = 1;
+      });
+      // playhead + current ruler banner
+      const xh = rx(tNow);
+      g.strokeStyle = acc; g.lineWidth = 2; g.beginPath(); g.moveTo(xh, TOP - 10); g.lineTo(xh, CH - 18); g.stroke();
+      const now = rows.filter(q => Y[q.id].reigns.some(r => tNow >= r[0] && tNow < (r[1] != null ? r[1] + 0.999 : r[0] + 1)));
+      g.font = '700 13px ' + cssv('--font-body', 'sans-serif'); g.textAlign = 'left'; g.fillStyle = ink;
+      const yrs = (q) => { const r = Y[q.id].reigns.find(r => tNow >= r[0] && tNow < (r[1] != null ? r[1] + 0.999 : r[0] + 1)); return Math.floor(tNow - r[0]) + 1; };
+      g.fillText(fy(tNow) + (now.length ? '　統治者：' + now.map(q => q.n + '（在位' + yrs(q) + '年目）').join('・') : '　統治者：—'), 10, 18);
+      g.fillStyle = ink3; g.font = '11px ' + cssv('--font-body', 'sans-serif');
+      g.fillText('○誕生　♛即位（太い帯＝在位）　†死去　曲線＝誰から位を継いだか（灰：実子／赤点線：養子）', 10, 34);
+    };
+    new ResizeObserver(() => { fit(); river(t); }).observe(cv);
+    const seekAt = (clientX) => { const r = cv.getBoundingClientRect(), x = clientX - r.left; if (x < X0) return; begin(); t = CM.clamp(t0 + (x - X0) / (X1 - X0) * (t1 - t0), t0, t1); lastIdx = -2; draw(); };
+    cv.addEventListener('click', (e) => seekAt(e.clientX));
+    let drag = false;
+    cv.addEventListener('pointerdown', (e) => { drag = true; seekAt(e.clientX); });
+    window.addEventListener('pointerup', () => { drag = false; });
+    cv.addEventListener('pointermove', (e) => { if (drag) seekAt(e.clientX); });
     // node decorations
     const deco = {};
     ppl.forEach(q => {
@@ -948,7 +1129,7 @@
     const draw = () => {
       bar.querySelector('.cyear').textContent = fy(t);
       bar.querySelector('.cseek').value = Math.round(1000 * (t - t0) / (t1 - t0));
-      cur.setAttribute('d', 'M' + gx(t) + ',14 V' + (GH - 6));
+      river(t);
       ppl.forEach(q => {
         const st = state(q, t), g = nodes[q.id], d = deco[q.id], yy = Y[q.id];
         g.style.opacity = st === 'pre' ? 0.06 : st === 'dead' ? 0.4 : st === 'after' ? 0.6 : 1;
@@ -956,7 +1137,6 @@
         d.dag.style.opacity = st === 'dead' ? 1 : 0;
         const rg = yy.reigns.find(r => t >= r[0] && t < (r[1] != null ? r[1] + 0.999 : r[0] + 1));
         if (rg && rg[1] != null && rg[1] > rg[0]) { d.prog.style.opacity = 1; d.prog.setAttribute('width', Math.max(0, (d.w - 12) * Math.min(1, (t - rg[0]) / (rg[1] - rg[0])))); } else d.prog.style.opacity = 0;
-        (gbars[q.id] || []).forEach(b => b.style.opacity = st === 'reign' ? 1 : (st === 'pre' ? 0.15 : 0.35));
       });
       linkEls.forEach(l => { const a = l.dataset.a, b = l.dataset.b; l.style.opacity = (t >= A[a] && t >= A[b]) ? 1 : 0.05; });
       // event log
@@ -978,7 +1158,6 @@
       run = true; bar.querySelector('.cplay').textContent = '❚❚ 一時停止'; lastIdx = -2; draw();
     });
     bar.querySelector('.cseek').addEventListener('input', (e) => { begin(); t = t0 + (t1 - t0) * (+e.target.value) / 1000; lastIdx = -2; draw(); });
-    gs.addEventListener('click', (e) => { const r = gs.getBoundingClientRect(), x = (e.clientX - r.left) * GW / r.width; if (x < GX0) return; begin(); t = CM.clamp(t0 + (x - GX0) / (GX1 - GX0) * (t1 - t0), t0, t1); lastIdx = -2; draw(); });
     const allBtn = host.querySelector('.wall');
     const exit = () => { active = false; stop(); ppl.forEach(q => { nodes[q.id].style.opacity = 1; const d = deco[q.id]; d.halo.style.opacity = 0; d.dag.style.opacity = 0; d.prog.style.opacity = 0; }); linkEls.forEach(l => l.style.opacity = 1); };
     if (allBtn) allBtn.addEventListener('click', exit);
@@ -987,12 +1166,13 @@
     animate(host, (dt) => {
       if (!run) return;
       const sp = +bar.querySelector('.cspd').value;
-      t += dt * sp * (t1 - t0) / 40;
+      const near = accs.some(e => t >= e.y - (t1 - t0) * 0.004 && t <= e.y + (t1 - t0) * 0.018);
+      t += dt * sp * (t1 - t0) / 48 * (near ? 0.3 : 1);
       if (t >= t1) { t = t1; stop(); }
       draw();
     });
-    // initial static strip
-    cur.setAttribute('d', 'M' + gx(t0) + ',14 V' + (GH - 6));
+    // initial: whole lineage drawn (as at the end), playback starts from the beginning
+    requestAnimationFrame(() => { fit(); river(t1); });
     bar.querySelector('.cyear').textContent = fy(t0);
   }
 
@@ -1032,7 +1212,7 @@
       const C = q.center === 'sun' ? P(q.sun) : P(q.earth);
       if (mode === 'aristotle') {
         [0.45, 0.7, 1.0, 1.524, 2.3, 2.75].forEach((r, i) => S('circle', { cx: C[0], cy: C[1], r: r * SC }, svg, 'fill:none;stroke:#4a5d86;stroke-width:1'));
-        txt(svg, '恒星天', C[0], C[1] - 2.75 * SC - 8 + 0, 10, 'fill:#8fa3c9');
+        txt(svg, '恒星天', C[0] + 2.75 * SC * 0.74, C[1] - 2.75 * SC * 0.74 - 6, 10, 'fill:#8fa3c9', 'start');
       } else if (mode === 'helio') {
         S('circle', { cx: C[0], cy: C[1], r: SC }, svg, 'fill:none;stroke:#4a6fae;stroke-dasharray:3 4');
         S('circle', { cx: C[0], cy: C[1], r: RM * SC }, svg, 'fill:none;stroke:#ae5a4a;stroke-dasharray:3 4');
@@ -2143,18 +2323,37 @@
     if (p.unit) txt(svg, p.unit, L - 8, T - 16, 11, 'fill:var(--ink-3)', 'end');
     const col = (c) => c ? CM.sideColor(c) : 'var(--accent)';
     const bw = Math.min(54, PW / n * 0.62);
-    const rects = [];
+    const rects = [], labs = [];
     bs.forEach((b, i) => {
       const cx = L + PW * (i + 0.5) / n, h = PH * b.v / max;
       const r = S('rect', { x: cx - bw / 2, y: T + PH, width: bw, height: 0, rx: 2 }, svg, 'fill:' + col(b.c) + ';cursor:pointer;transition:y .9s ease,height .9s ease,opacity .3s');
       rects.push(r);
       setTimeout(() => { r.setAttribute('y', T + PH - h); r.setAttribute('height', h); }, 80 + i * 90);
-      txt(svg, b.l, cx, T + PH + 16, 11, 'fill:var(--ink-2);font-weight:700');
-      if (b.s) txt(svg, b.s, cx, T + PH + 31, 10, 'fill:var(--ink-3)');
+      const lt = txt(svg, b.l, cx, T + PH + 16, 11, 'fill:var(--ink-2);font-weight:700');
+      const st = b.s ? txt(svg, b.s, cx, T + PH + 31, 10, 'fill:var(--ink-3)') : null;
+      labs.push([lt, st]);
       const vt = txt(svg, (b.vl || fmt(b.v)), cx, T + PH - h - 9, 10.5, 'fill:var(--ink);font-weight:700;opacity:0;transition:opacity .4s');
       setTimeout(() => vt.style.opacity = 1, 900 + i * 90);
       r.onclick = () => { rects.forEach((q, k) => q.style.opacity = k === i ? 1 : .45); out.innerHTML = '<b>' + b.l + (b.s ? '（' + b.s + '）' : '') + '</b>　' + (b.note || ''); };
     });
+    // labels wider than their slot: wrap into two lines (and shrink if needed), pushing the sub-label down
+    const slot = PW / n * 0.96;
+    const fitAll = () => {
+      let grow = 0;
+      labs.forEach(([lt, st]) => {
+        const k = fitLabel(lt, slot);
+        if (k === 2) { lt.setAttribute('y', T + PH + 22); grow = Math.max(grow, 14); }
+        if (st) {
+          const y0 = k === 2 ? T + PH + 45 : T + PH + 31;
+          st.setAttribute('y', y0); [...st.querySelectorAll('tspan')].forEach(s => s.setAttribute('x', st.getAttribute('x')));
+          const k2 = fitLabel(st, slot);
+          if (k2 === 2) { st.setAttribute('y', y0 + 6); grow = Math.max(grow, k === 2 ? 28 : 14); }
+        }
+      });
+      if (grow) svg.setAttribute('viewBox', '0 0 ' + VW + ' ' + (VH + grow));
+    };
+    const tryFit = () => { if (!svg.isConnected) return; try { if (!svg.getBBox().width) return setTimeout(tryFit, 300); } catch (e) { return; } fitAll(); };
+    requestAnimationFrame(tryFit);
   };
 
   /* ================= cityplan: schematic city plan with overlays ================= */
@@ -2522,6 +2721,130 @@
   };
 
   /* ================= network: clickable relation diagram (e.g. Amarna great powers) ================= */
+  /* ================= inflation: Weimar hyperinflation on a log scale ================= */
+  W.inflation = function (host, p) {
+    const D = p.data || [];
+    const ctl = H('div', 'wctl', host, '<input type="range" min="0" max="' + (D.length - 1) + '" value="0" class="wrange" style="flex:1" aria-label="時期"><button type="button" class="wplay">▶ 再生</button>');
+    const svg = svgBox(host, 640, 300);
+    const out = H('div', 'wout', host);
+    const X0 = 70, X1 = 400, Y0 = 260, Y1 = 30, T0 = p.from || 1914, T1 = p.to || 1924.2, LMAX = p.lmax || 13;
+    const sx = t => X0 + (t - T0) / (T1 - T0) * (X1 - X0), sy = v => Y0 - Math.log10(Math.max(1, v)) / LMAX * (Y0 - Y1);
+    const jn = (v) => {
+      const u = [[1e12, '兆'], [1e8, '億'], [1e4, '万']];
+      for (const [d, n] of u) if (v >= d) { const q = v / d; return (q >= 100 ? Math.round(q).toLocaleString() : (Math.round(q * 10) / 10).toLocaleString()) + n; }
+      return (v >= 100 ? Math.round(v) : Math.round(v * 100) / 100).toLocaleString();
+    };
+    [[1, '1'], [1e3, '1000'], [1e6, '100万'], [1e9, '10億'], [1e12, '1兆']].forEach(([v, l]) => { S('line', { x1: X0, y1: sy(v), x2: X1, y2: sy(v) }, svg, 'stroke:var(--rule)'); txt(svg, l, X0 - 8, sy(v), 10.5, 'fill:var(--ink-3)', 'end'); });
+    for (let y = Math.ceil(T0); y <= T1; y += 2) txt(svg, y + '年', sx(y), Y0 + 16, 10.5, 'fill:var(--ink-3)');
+    txt(svg, p.ylabel || '1ドルが何マルクか（目盛りは1000倍ごと）', X0 - 50, Y1 - 16, 11, 'fill:var(--ink-3);font-weight:700', 'start');
+    (p.bands || []).forEach(b => { S('rect', { x: sx(b[0]), y: Y1, width: sx(b[1]) - sx(b[0]), height: Y0 - Y1 }, svg, 'fill:var(--accent);opacity:.08'); txt(svg, b[2], (sx(b[0]) + sx(b[1])) / 2, Y1 + 10, 10, 'fill:var(--accent)'); });
+    const pts = D.map(d => sx(d[1]) + ',' + sy(d[2]));
+    const poly = S('polyline', { points: '' }, svg, 'fill:none;stroke:var(--accent);stroke-width:3;stroke-linejoin:round');
+    const dot = S('circle', { cx: 0, cy: 0, r: 6 }, svg, 'fill:var(--accent);stroke:var(--ink);stroke-width:1.5');
+    // banknote stack: one note per factor of 10
+    const SX = 525, SB = 250, notes = [];
+    for (let i = 0; i < 13; i++) notes.push(S('rect', { x: SX - 60 + (i % 2) * 6, y: SB - 14 - i * 15, width: 110, height: 13, rx: 2 }, svg, 'fill:var(--gold);stroke:var(--ink-2);stroke-width:1;opacity:0;transition:opacity .4s'));
+    txt(svg, '1ドルに必要な札束', SX, SB + 16, 10.5, 'fill:var(--ink-3)');
+    txt(svg, '（札1枚＝10倍）', SX, SB + 30, 9.5, 'fill:var(--ink-3)');
+    const big = txt(svg, '', SX, 22, 15, 'font-weight:700');
+    let k = 0, timer = null;
+    const draw = () => {
+      const d = D[k];
+      poly.setAttribute('points', pts.slice(0, k + 1).join(' '));
+      dot.setAttribute('cx', sx(d[1])); dot.setAttribute('cy', sy(d[2]));
+      const n = Math.max(1, Math.round(Math.log10(d[2])) + 1);
+      notes.forEach((r, i) => r.style.opacity = i < n ? 1 : 0);
+      big.textContent = '1ドル＝' + jn(d[2]) + (d[5] || 'マルク');
+      out.innerHTML = '<b>' + d[0] + '</b>　1ドル＝約' + jn(d[2]) + (d[5] || 'マルク') + (d[3] != null ? '　／　パン1個 約' + jn(d[3]) + (d[5] || 'マルク') : '') + '<br>' + (d[4] || '') + (p.note ? '<br><span style="font-size:.9em;color:var(--ink-3)">' + p.note + '</span>' : '');
+      ctl.querySelector('.wrange').value = k;
+    };
+    ctl.querySelector('.wrange').addEventListener('input', (e) => { k = +e.target.value; draw(); });
+    const stop = () => { if (timer) { clearInterval(timer); timer = null; ctl.querySelector('.wplay').textContent = '▶ 再生'; } };
+    ctl.querySelector('.wplay').addEventListener('click', (e) => {
+      if (timer) { stop(); return; }
+      if (k >= D.length - 1) k = 0;
+      e.target.textContent = '■ 止める';
+      timer = setInterval(() => { if (k >= D.length - 1) { stop(); return; } k++; draw(); }, 1300);
+      draw();
+    });
+    draw();
+  };
+
+  /* ================= dots: one dot per person; reveal how many met a fate ================= */
+  W.dots = function (host, p) {
+    const G = p.groups || [];
+    const ctl = H('div', 'wctl', host, G.map((g, i) => '<button type="button" class="wplay" data-i="' + i + '">' + esc(g.btn || g.title) + '</button>').join(''));
+    const VW = 640, cols = p.cols || 40, r = p.r || 5, gap = p.gap || 14;
+    const svg = svgBox(host, VW, 10);
+    const out = H('div', 'wout', host, p.hint || 'ボタンを押すと表示が切り替わる。');
+    let timers = [];
+    const show = (i) => {
+      timers.forEach(clearTimeout); timers = [];
+      while (svg.firstChild) svg.removeChild(svg.firstChild);
+      ctl.querySelectorAll('button').forEach((b, k) => b.style.fontWeight = k === i ? 700 : 400);
+      const g = G[i], n = g.n, k = g.k, gp = g.gap || gap, rr = g.r || r, c = Math.min(g.cols || cols, n), rows = Math.ceil(n / c);
+      const W0 = (c - 1) * gp, x0 = (VW - W0) / 2, y0 = 40, H0 = y0 + rows * gp + 30;
+      svg.setAttribute('viewBox', '0 0 ' + VW + ' ' + H0);
+      txt(svg, g.title, VW / 2, 16, 13, 'font-weight:700');
+      const ds = [];
+      for (let j = 0; j < n; j++) ds.push(S('circle', { cx: x0 + (j % c) * gp, cy: y0 + Math.floor(j / c) * gp, r: rr }, svg, 'fill:var(--ink-3);opacity:.45;transition:fill .5s,opacity .5s'));
+      const cnt = txt(svg, '', VW / 2, H0 - 12, 12.5, 'fill:var(--accent);font-weight:700');
+      // pick k dots spread evenly (deterministic shuffle)
+      let sd = 12345 + n; const rnd = () => { sd = (sd + 0x6D2B79F5) | 0; let t = Math.imul(sd ^ (sd >>> 15), 1 | sd); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; const idx = ds.map((_, j) => j); for (let j = idx.length - 1; j > 0; j--) { const q = Math.floor(rnd() * (j + 1)); [idx[j], idx[q]] = [idx[q], idx[j]]; } idx.length = k;
+      idx.forEach((j, m) => timers.push(setTimeout(() => { ds[j].style.fill = 'var(--accent)'; ds[j].style.opacity = 1; cnt.textContent = (m + 1).toLocaleString() + (g.unit || '人') + ' / ' + n.toLocaleString() + (g.unit || '人'); }, 300 + m * Math.min(25, 2500 / k))));
+      out.innerHTML = g.note || '';
+    };
+    ctl.querySelectorAll('button').forEach(b => b.addEventListener('click', () => show(+b.dataset.i)));
+    if (G.length) show(0);
+  };
+
+  /* ================= spiral: contracting spiral of world trade (Kindleberger) ================= */
+  W.spiral = function (host, p) {
+    const D = p.data || [], VW = 640, VH = 420, CX = 250, CY = 215, RM = 190;
+    const ctl = H('div', 'wctl', host, '<input type="range" min="0" max="' + ((D.length - 1) * 12) + '" value="0" class="wrange" style="flex:1" aria-label="月"><button type="button" class="wplay">▶ 再生</button>');
+    const svg = svgBox(host, VW, VH);
+    const out = H('div', 'wout', host);
+    const vmax = p.max || 3200;
+    const MN = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+    [1000, 2000, 3000].forEach(v => { S('circle', { cx: CX, cy: CY, r: RM * v / vmax }, svg, 'fill:none;stroke:var(--rule)'); txt(svg, v.toLocaleString(), CX + 4, CY - RM * v / vmax - 6, 10, 'fill:var(--ink-3)', 'start'); });
+    MN.forEach((m, i) => { const a = -Math.PI / 2 + i / 12 * 2 * Math.PI; S('line', { x1: CX, y1: CY, x2: CX + Math.cos(a) * RM, y2: CY + Math.sin(a) * RM }, svg, 'stroke:var(--rule);stroke-width:.6'); txt(svg, m, CX + Math.cos(a) * (RM + 14), CY + Math.sin(a) * (RM + 14), 10.5, 'fill:var(--ink-3)'); });
+    // monthly interpolation (geometric) between January values
+    const pts = [];
+    for (let k = 0; k < D.length - 1; k++) for (let m = 0; m < 12; m++) { const t = m / 12; pts.push({ y: D[k][0], m, v: D[k][1] * Math.pow(D[k + 1][1] / D[k][1], t) }); }
+    pts.push({ y: D[D.length - 1][0], m: 0, v: D[D.length - 1][1] });
+    const xy = (q) => { const a = -Math.PI / 2 + q.m / 12 * 2 * Math.PI, r = RM * q.v / vmax; return [CX + Math.cos(a) * r, CY + Math.sin(a) * r]; };
+    const path = S('polyline', { points: '' }, svg, 'fill:none;stroke:var(--accent);stroke-width:2.6;stroke-linejoin:round');
+    const dot = S('circle', { r: 6 }, svg, 'fill:var(--accent);stroke:var(--ink);stroke-width:1.2');
+    const yl = [];
+    D.forEach((d, i) => { const q = xy({ m: 0, v: d[1] }); const t = txt(svg, d[0] + '年1月', q[0] + (i % 2 ? 8 : -8), q[1] + 2, 10, 'fill:var(--ink-2);font-weight:700;opacity:0;transition:opacity .4s', i % 2 ? 'start' : 'end'); yl.push(t); });
+    const big = txt(svg, '', 555, 140, 24, 'font-weight:700;fill:var(--accent)');
+    const sub = txt(svg, '', 555, 172, 12, 'fill:var(--ink-2)');
+    const sub2 = txt(svg, '', 555, 192, 11, 'fill:var(--ink-2)');
+    txt(svg, p.unit || '（100万金ドル）', 555, 214, 10, 'fill:var(--ink-3)');
+    let k = 0, timer = null;
+    const draw = () => {
+      const q = pts[k];
+      path.setAttribute('points', pts.slice(0, k + 1).map(xy).map(a => a.join(',')).join(' '));
+      const c = xy(q); dot.setAttribute('cx', c[0]); dot.setAttribute('cy', c[1]);
+      yl.forEach((t, i) => t.style.opacity = i * 12 <= k ? 1 : 0);
+      big.textContent = Math.round(q.v).toLocaleString();
+      sub.textContent = q.y + '年' + MN[q.m]; sub2.textContent = '（1929年1月の' + Math.round(q.v / D[0][1] * 100) + '％）';
+      const yi = Math.min(D.length - 1, Math.floor(k / 12));
+      out.innerHTML = '<b>' + q.y + '年</b>　' + (D[yi][2] || '') + (p.note ? '<br><span style="font-size:.9em;color:var(--ink-3)">' + p.note + '</span>' : '');
+      ctl.querySelector('.wrange').value = k;
+    };
+    ctl.querySelector('.wrange').addEventListener('input', (e) => { k = +e.target.value; draw(); });
+    const stop = () => { if (timer) { clearInterval(timer); timer = null; ctl.querySelector('.wplay').textContent = '▶ 再生'; } };
+    ctl.querySelector('.wplay').addEventListener('click', (e) => {
+      if (timer) { stop(); return; }
+      if (k >= pts.length - 1) k = 0;
+      e.target.textContent = '■ 止める';
+      timer = setInterval(() => { if (k >= pts.length - 1) { stop(); return; } k++; draw(); }, 180);
+      draw();
+    });
+    draw();
+  };
+
   W.network = function (host, p) {
     const w = p.w || 640, h = p.h || 380;
     const svg = svgBox(host, w, h);
@@ -2535,18 +2858,23 @@
     Object.assign(LN, p.legend || {});
     const used = new Set();
     const N = {}; (p.nodes || []).forEach(n => N[n.id] = n);
-    const eg = S('g', {}, svg), ng = S('g', {}, svg);
+    const eg = S('g', {}, svg), ng = S('g', {}, svg), lg = S('g', {}, svg), elabs = [];
     (p.edges || []).forEach(e => {
       const a = N[e[0]], b = N[e[1]]; if (!a || !b) return; used.add(e[2]);
       const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, dx = b.x - a.x, dy = b.y - a.y, bend = e[3] || 0;
       const path = S('path', { d: `M${a.x},${a.y} Q${mx - dy * bend},${my + dx * bend} ${b.x},${b.y}` }, eg, 'fill:none;' + ST[e[2]]);
       path.dataset.a = e[0]; path.dataset.b = e[1];
       if (e[2] === 'marry') S('path', { d: `M${a.x},${a.y} Q${mx - dy * bend},${my + dx * bend} ${b.x},${b.y}` }, eg, 'fill:none;stroke:var(--card);stroke-width:0.9');
-      if (e[4]) { const t = txt(eg, e[4], mx - dy * bend / 2, my + dx * bend / 2 - 8, 10.5, 'fill:var(--ink-2);paint-order:stroke;stroke:var(--card);stroke-width:3px'); t.dataset.a = e[0]; t.dataset.b = e[1]; }
+      if (e[4]) {
+        const cx = mx - dy * bend, cy = my + dx * bend, at = (u) => [(1 - u) * (1 - u) * a.x + 2 * (1 - u) * u * cx + u * u * b.x, (1 - u) * (1 - u) * a.y + 2 * (1 - u) * u * cy + u * u * b.y];
+        const p0 = at(0.5), t = txt(lg, e[4], p0[0], p0[1] - 8, 10.5, 'fill:var(--ink-2);paint-order:stroke;stroke:var(--card);stroke-width:3.5px;pointer-events:none');
+        t._cands = [0.5, 0.38, 0.62, 0.28, 0.72].map(u => { const q = at(u); return [q[0], q[1] - 8]; });
+        t.dataset.a = e[0]; t.dataset.b = e[1]; elabs.push(t);
+      }
     });
     leg.innerHTML = [...used].map(k => '<span><svg width="28" height="8"><path d="M0,4 H28" style="' + ST[k] + '"/></svg>' + LN[k] + '</span>').join('');
     const sel = (id) => {
-      eg.querySelectorAll('[data-a]').forEach(el => { const on = !id || el.dataset.a === id || el.dataset.b === id; el.style.opacity = on ? 1 : 0.15; });
+      svg.querySelectorAll('[data-a]').forEach(el => { const on = !id || el.dataset.a === id || el.dataset.b === id; el.style.opacity = on ? 1 : 0.15; });
       ng.querySelectorAll('g[data-id]').forEach(g => g.querySelector('rect').style.strokeWidth = g.dataset.id === id ? '3' : '1.2');
       const n = N[id]; if (!n) { info.innerHTML = p.hint || ''; return; }
       info.innerHTML = '<b>' + esc(n.label) + '</b>' + (n.sub ? '　<small>' + esc(n.sub) + '</small>' : '') + '<br>' + (n.html || esc(n.text || ''));
@@ -2554,13 +2882,14 @@
     (p.nodes || []).forEach(n => {
       const g = S('g', { 'data-id': n.id, tabindex: 0, role: 'button' }, ng, 'cursor:pointer');
       const tw = Math.max(70, n.label.length * 14 + 18);
-      S('rect', { x: n.x - tw / 2, y: n.y - 17, width: tw, height: 34, rx: 6 }, g, 'fill:var(--card);stroke:' + (n.c ? CM.sideColor(n.c) : 'var(--ink)') + ';stroke-width:1.2');
+      S('rect', { x: n.x - tw / 2, y: n.y - 17, width: tw, height: 34, rx: 6, 'data-box': 1 }, g, 'fill:var(--card);stroke:' + (n.c ? CM.sideColor(n.c) : 'var(--ink)') + ';stroke-width:1.2');
       txt(g, n.label, n.x, n.y - (n.sub ? 5 : 0), 13.5, 'font-weight:700;fill:' + (n.c ? CM.sideColor(n.c) : 'var(--ink)'));
       if (n.sub) txt(g, n.sub, n.x, n.y + 9, 9.5, 'fill:var(--ink-3)');
       const go = () => sel(n.id);
       g.addEventListener('click', go); g.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
     });
     svg.addEventListener('click', (e) => { if (e.target === svg) sel(null); });
+    declutter(svg, elabs);
   };
 
   /* ================= choice: pick options -> lookup result (e.g. Hammurabi penalties) ================= */
@@ -2592,9 +2921,14 @@
     const info = H('div', 'wout winfo', host, p.hint || 'バーにカーソルを合わせる（タップする）と説明が出る。縦線を動かすと、その年に並び立つ国が分かる。');
     const X = (y) => left + (y - from) / (to - from) * (w - left - 12);
     const fmt = (y) => y < 0 ? '前' + (-y) : String(y);
-    for (let y = Math.ceil(from / (p.tick || 500)) * (p.tick || 500); y <= to; y += (p.tick || 500)) {
-      S('path', { d: `M${X(y)},${top - 6} V${h - 22}` }, svg, 'stroke:var(--rule);stroke-width:1');
-      txt(svg, fmt(y), X(y), top - 14, 10.5, 'fill:var(--ink-3)');
+    const isInt = (y) => Math.abs(y - Math.round(y)) < 1e-6;
+    const mon = (y) => Math.min(12, Math.floor((y - Math.floor(y)) * 12 + 1e-6) + 1);
+    const fd = (y) => isInt(y) ? fmt(Math.round(y)) + '年' : fmt(Math.floor(y)) + '年' + mon(y) + '月';
+    const dec = rows.some(r => (Array.isArray(r[1]) ? r[1] : [[r[1], r[2]]]).some(sg => !isInt(sg[0]) || !isInt(sg[1])));
+    const tk = p.tick || 500;
+    for (let y = Math.ceil(from / tk - 1e-9) * tk; y <= to + 1e-9; y = Math.round((y + tk) * 1e4) / 1e4) {
+      S('path', { d: `M${X(y)},${top - 6} V${h - 22}` }, svg, 'stroke:var(--rule);stroke-width:' + (isInt(y) ? 1 : .6));
+      txt(svg, isInt(y) ? fmt(Math.round(y)) : mon(y) + '月', X(y), top - 14, 10.5, 'fill:var(--ink-3)');
     }
     const G = p.groups || {};
     rows.forEach((r, i) => {
@@ -2604,20 +2938,20 @@
       const col = G[r[3]] ? CM.sideColor(G[r[3]]) : CM.sideColor(r[3] || 'b');
       segs.forEach(sg => {
         const b = S('rect', { x: X(sg[0]), y: y + 4, width: Math.max(2, X(sg[1]) - X(sg[0])), height: rh - 8, rx: 3 }, svg, 'fill:' + col + ';opacity:.85;cursor:pointer');
-        const show = () => { info.innerHTML = '<b>' + esc(r[0]) + '</b>（' + fmt(sg[0]) + '〜' + fmt(sg[1]) + '年ごろ）　' + esc(sg[2] || r[4] || ''); };
+        const show = () => { info.innerHTML = '<b>' + esc(r[0]) + '</b>（' + (dec ? (Math.abs(sg[0] - sg[1]) < 1e-6 ? fd(sg[0]) : fd(sg[0]) + '〜' + fd(sg[1])) : fmt(sg[0]) + '〜' + fmt(sg[1]) + '年ごろ') + '）　' + esc(sg[2] || r[4] || ''); };
         b.addEventListener('mouseenter', show); b.addEventListener('click', show);
       });
     });
     const cur = S('path', {}, svg, 'stroke:var(--accent);stroke-width:1.6');
     const curT = txt(svg, '', 0, h - 10, 11.5, 'fill:var(--accent);font-weight:700');
     const setCur = (yr) => {
-      cur.setAttribute('d', `M${X(yr)},${top - 4} V${h - 22}`); curT.setAttribute('x', X(yr)); curT.textContent = fmt(Math.round(yr));
+      cur.setAttribute('d', `M${X(yr)},${top - 4} V${h - 22}`); curT.setAttribute('x', X(yr)); curT.textContent = dec ? fd(yr) : fmt(Math.round(yr));
       const act = rows.filter(r => (Array.isArray(r[1]) ? r[1] : [[r[1], r[2]]]).some(sg => sg[0] <= yr && yr <= sg[1])).map(r => r[0]);
       return act;
     };
-    const ctl = H('div', 'wctl', host, '<label>年 <input type="range" min="' + from + '" max="' + to + '" value="' + (p.start || from) + '" class="wy"></label> <span class="wact"></span>');
+    const ctl = H('div', 'wctl', host, '<label>年 <input type="range" min="' + from + '" max="' + to + '" step="' + (p.step || (dec ? 1 / 24 : 1)) + '" value="' + (p.start || from) + '" class="wy"></label> <span class="wact"></span>');
     const yr = ctl.querySelector('.wy'), act = ctl.querySelector('.wact');
-    const upd = () => { const a = setCur(+yr.value); act.textContent = '並び立つ国：' + (a.join('・') || 'なし'); };
+    const upd = () => { const a = setCur(+yr.value); act.textContent = (p.actLabel || (dec ? '進行中：' : '並び立つ国：')) + (a.join('・') || 'なし'); };
     yr.addEventListener('input', upd); upd();
   };
 
@@ -2693,15 +3027,16 @@
     const B = {};
     (p.boxes || []).forEach(b => {
       const g = S('g', {}, svg); B[b.id] = { g, b };
-      S('rect', { x: b.x - b.w / 2, y: b.y - (b.h || 44) / 2, width: b.w, height: b.h || 44, rx: 7 }, g, 'fill:var(--card);stroke:' + (b.c ? CM.sideColor(b.c) : 'var(--ink-2)') + ';stroke-width:1.5');
+      S('rect', { x: b.x - b.w / 2, y: b.y - (b.h || 44) / 2, width: b.w, height: b.h || 44, rx: 7, 'data-box': 1 }, g, 'fill:var(--card);stroke:' + (b.c ? CM.sideColor(b.c) : 'var(--ink-2)') + ';stroke-width:1.5');
       const lines = b.t.split('\n'); lines.forEach((ln, i) => txt(g, ln, b.x, b.y + (i - (lines.length - 1) / 2) * 15, i ? 11 : 13, i ? 'fill:var(--ink-3)' : 'font-weight:700;fill:' + (b.c ? CM.sideColor(b.c) : 'var(--ink)')));
     });
+    const alabs = [];
     const A = (p.arrows || []).map(a => {
       const f = B[a[0]].b, t = B[a[1]].b;
       const p1 = edgePt(f, t), p2 = edgePt(t, f);
       const g = S('g', {}, svg);
       S('path', { d: `M${p1[0]},${p1[1]} Q${(p1[0] + p2[0]) / 2 + (a[3] || 0)},${(p1[1] + p2[1]) / 2 - (a[4] || 0)} ${p2[0]},${p2[1]}`, 'marker-end': 'url(#' + mk.id + ')' }, g, 'fill:none;stroke:var(--ink-2);stroke-width:2');
-      if (a[2]) txt(g, a[2], (p1[0] + p2[0]) / 2 + (a[3] || 0) / 2, (p1[1] + p2[1]) / 2 - (a[4] || 0) / 2 - 9, 11, 'fill:var(--ink-2);paint-order:stroke;stroke:var(--paper);stroke-width:3px');
+      if (a[2]) { const cx = (p1[0] + p2[0]) / 2 + (a[3] || 0), cy = (p1[1] + p2[1]) / 2 - (a[4] || 0), at = (u) => [(1 - u) * (1 - u) * p1[0] + 2 * (1 - u) * u * cx + u * u * p2[0], (1 - u) * (1 - u) * p1[1] + 2 * (1 - u) * u * cy + u * u * p2[1]]; const q = at(0.5); const lt = txt(g, a[2], q[0], q[1] - 9, 11, 'fill:var(--ink-2);paint-order:stroke;stroke:var(--paper);stroke-width:3px'); lt._cands = [0.5, 0.35, 0.65, 0.25, 0.75].map(u => { const r = at(u); return [r[0], r[1] - 9]; }); alabs.push(lt); }
       return g;
     });
     function edgePt(a, b) { const dx = b.x - a.x, dy = b.y - a.y, hw = a.w / 2 + 3, hh = (a.h || 44) / 2 + 3; const s = Math.min(hw / Math.abs(dx || 1e-6), hh / Math.abs(dy || 1e-6)); return [a.x + dx * s, a.y + dy * s]; }
@@ -2714,6 +3049,7 @@
       out.innerHTML = s.text || '';
       ctl.querySelector('.wstep').textContent = (i + 1) + ' / ' + steps.length;
     };
+    declutter(svg, alabs);
     ctl.querySelector('.wnext').addEventListener('click', () => { i = (i + 1) % steps.length; show(); });
     ctl.querySelector('.wprev').addEventListener('click', () => { i = (i - 1 + steps.length) % steps.length; show(); });
     show();

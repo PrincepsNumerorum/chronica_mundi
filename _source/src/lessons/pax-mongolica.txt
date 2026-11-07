@@ -33,6 +33,8 @@ question: モンゴル帝国は、ユーラシアの東と西をどのように�
 :::topic source | 「昼も夜も安全な道」
 14世紀の前半、イタリアのフィレンツェの大商社バルディ家に勤めた商人ペゴロッティは、商人のための手引き書『商業の手引き』を書いた。その中には、黒海の北岸の港ターナ（現在のアゾフ）から、中国（カタイ）の都ハンバリク（大都）までの旅の方法が、詳しく記されている。
 
+>原[it] Il cammino d'andare dalla Tana al Gattaio è sicurissimo e di dì e di notte, secondo che si conta per li mercatanti che l'hanno usato.
+>訳 
 >>ターナからカタイへの道は、そこを通ってきた商人たちが言うところによれば、昼も夜もまったく安全である。
 
 ペゴロッティは、旅の日数や、途中で買うべき品物、通訳の雇い方まで書き、さらに「ターナを出発する前に、ひげを伸ばし、剃らずにおくのがよい」と勧めている。また、旅の途中で商人が死ぬと、その財産はその土地の支配者に没収されてしまうので注意せよ、とも書いている。ユーラシアを横断する商売の旅が、イタリアの商人にとって、手引き書が必要になるほど身近なものになっていたのである。
@@ -116,6 +118,8 @@ question: モンゴル帝国は、ユーラシアの東と西をどのように�
 
 そして、最後の謁見のとき、モンケはルブルックに、こう語った。
 
+>原[la] Nos Moal credimus quod non sit nisi unus Deus …… Sed sicut Deus dedit manui diversos digitos, ita dedit hominibus diversas vias.
+>訳 
 >>我らモンゴル人は、ただ一つの神がいると信じている。……神は手に何本もの指を与えたように、人々にもさまざまな道を与えたのである。
 
 モンケにとって、さまざまな宗教は、同じ天に至る別々の道だったのである。
@@ -171,6 +175,12 @@ question: モンゴル帝国は、ユーラシアの東と西をどのように�
 @map year=1300 view=62.0,34.0,0.6 places=pm_dadu,pm_karakorum,pm_almalik,pm_otrar,pm_urgench,pm_sarai,pm_tana,pm_tabriz,pm_baghdad,pm_hormuz,pm_quilon,pm_quanzhou,pm_constantinople,pm_rome,pm_paris routes=pm_land,pm_sea,pm_sauma legend=a:草原の道（ペゴロッティの道）;e:海の道;c:ラッバン・サウマの旅 cap="モンゴル帝国の時代の東西交流の道（14世紀前半）"
 
 :::contemp 1300 15
+
+:::topic works | この時代を描いた作品
+- **ドラマ『マルコ・ポーロ』**（Netflix、2014〜2016年）：クビライの宮廷に仕えたマルコ＝ポーロを主人公にしたドラマ。物語の多くは創作である。
+
+作品は史実をもとにした創作を含むことが多い。史実との違いにも注意しながら楽しもう。
+:::
 
 ## まとめ
 

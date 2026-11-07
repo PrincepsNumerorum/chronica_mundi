@@ -32,6 +32,8 @@ question: ローマはなぜ共和政から皇帝の支配へと移ったのか
 
 ## 第1回三頭政治
 
+@map year=-52 view=3,47.5,3.2 routes=gallic58,gallic55,gallic52 places=rome,alesia,gergovia,bibracte,massilia,lutetia legend=a:カエサル軍の主な進路 cap="ガリア遠征（前58〜前51年）"
+
 前60年、カエサルは、東方遠征で名声を得た将軍[[ポンペイウス]]、資産家クラッススと手を結んだ。これが==[[第1回三頭政治]]==である。
 
 ここで注意したいのは、==これが正式な制度ではなく、三人の個人的な密約だった==ことだ。元老院と対立していたポンペイウスは、部下の兵士に土地を与える法案を通したい。クラッススは、取引のある徴税請負人に有利な措置がほしい。カエサルは、執政官（[[コンスル]]）の地位と、その後の軍事指揮権がほしい。三人がそれぞれの利益のために協力し、元老院を押さえ込んだのである。
@@ -42,7 +44,6 @@ question: ローマはなぜ共和政から皇帝の支配へと移ったのか
 第1回三頭政治（前60年）は、三人の非公式な盟約にすぎなかった。これに対して第2回三頭政治（前43年）は、==民会で法律を通して作られた、5年任期の正式な国家機関==である。名前は同じでも性格はまったく違う。入試でもよく問われるところだ。
 :::
 
-@map year=-52 view=3,47.5,3.2 routes=gallic58,gallic55,gallic52 places=rome,alesia,gergovia,bibracte,massilia,lutetia legend=a:カエサル軍の主な進路 cap="ガリア遠征（前58〜前51年）"
 ## ガリア遠征
 
 コンスルの任期を終えたカエサルは、総督としてガリア（現在のフランス・ベルギー・スイスあたり）へ向かった。前58年から約8年にわたる[[ガリア遠征]]の始まりである。
@@ -52,9 +53,8 @@ question: ローマはなぜ共和政から皇帝の支配へと移ったのか
 この遠征の記録を、カエサルは自ら書き残した。『[[ガリア戦記]]』である。
 
 :::topic source | 『ガリア戦記』の書き出し
->>Gallia est omnis divisa in partes tres, quarum unam incolunt Belgae, aliam Aquitani, tertiam qui ipsorum lingua Celtae, nostra Galli appellantur.
-
-「ガリアは全体として三つの部分に分かれている。その一つにはベルガエ人が、もう一つにはアクィタニ人が、三つ目には、彼ら自身の言葉でケルタエ、我々の言葉でガリと呼ばれる人々が住んでいる」
+>原[la] Gallia est omnis divisa in partes tres, quarum unam incolunt Belgae, aliam Aquitani, tertiam qui ipsorum lingua Celtae, nostra Galli appellantur.
+>訳 ガリアは全体として三つの部分に分かれている。その一つにはベルガエ人が、もう一つにはアクィタニ人が、三つ目には、彼ら自身の言葉でケルタエ、我々の言葉でガリと呼ばれる人々が住んでいる
 
 ラテン語の授業で必ず読まれる有名な一文である。『ガリア戦記』は簡潔で明快な文章で知られるが、カエサルは自分のことを一貫して「カエサルは」と三人称で書いている。ローマの市民に向けて、自分の戦いが正当で、しかも見事なものであることを示す、いわば政治的な報告書でもあった。
 -- 出典：カエサル『ガリア戦記』第1巻1。ラテン語原文からの本サイト訳。
@@ -84,6 +84,22 @@ question: ローマはなぜ共和政から皇帝の支配へと移ったのか
 :::
 
 @map year=-45 view=15,38,1 routes=civilwar places=rubicon,rome,brundisium,dyrrachium,pharsalus,alexandria,zela,thapsus,munda legend=a:カエサルの進路 cap="内乱（前49〜前45年）"
+:::topic voice | 「老人も、女も、幼な子も」――ガリア征服
+前52年、カエサルの軍は、ガリアの町アウァリクム（現在のブールジュ）を攻め落とした。カエサルは、自らの戦記に、こう書いている。
+
+>原[la] Sic et caede et labore incitati non aetate confectis, non mulieribus, non infantibus pepercerunt. …… Denique ex omni numero, qui fuit circiter milium XL, vix DCCC …… incolumes ad Vercingetorigem pervenerunt.
+>訳 こうして、（兵士たちは）殺戮と（包囲の）苦労とにかき立てられ、老人も、女も、幼な子も容赦しなかった。……結局、およそ4万人いた者のうち、無事にウェルキンゲトリクスのもとにたどり着いたのは、わずか800人ほどであった。
+-- 出典：カエサル『ガリア戦記』7巻28節
+
+同じ年のアレシアの包囲では、食料の尽きた町から、住民のマンドゥビイ族が、妻子とともに追い出された。
+
+>原[la] Mandubii, qui eos oppido receperant, cum liberis atque uxoribus exire coguntur. Hi, cum ad munitiones Romanorum accessissent, flentes omnibus precibus orabant, ut se in servitutem receptos cibo iuvarent. At Caesar dispositis in vallo custodiis recipi prohibebat.
+>訳 （ガリア軍を）町に迎え入れていたマンドゥビイ族は、子どもや妻とともに、町から出ることを強いられた。彼らはローマ軍の防塁に近づくと、泣きながら、あらゆる言葉で、奴隷にしてもかまわないから食べ物を与えてほしいと懇願した。しかし、カエサルは、塁壁に見張りを配置して、彼らを受け入れることを禁じた。
+-- 出典：カエサル『ガリア戦記』7巻78節
+
+彼らは、両軍の陣地の間で、飢えて死んでいったと考えられている。
+:::
+
 ## ルビコン川を渡る
 
 カエサルがガリアで戦っている間に、三頭政治は崩れていった。前54年にポンペイウスの妻だったユリアが亡くなり、前53年にはクラッススが東方のパルティアとの戦い（カルラエの戦い）で戦死した。残ったポンペイウスは、カエサルの台頭を恐れる元老院の保守派と手を組む。
@@ -93,9 +109,8 @@ question: ローマはなぜ共和政から皇帝の支配へと移ったのか
 :::topic source | 「賽は投げられた」
 スエトニウスによれば、ルビコン川の前でカエサルはしばらく迷ったのち、こう言ったという。
 
->>Eatur quo deorum ostenta et inimicorum iniquitas vocat. Iacta alea est.
-
-「神々のしるしと、敵どもの不正が呼ぶところへ進もう。賽は投げられた」
+>原[la] Eatur quo deorum ostenta et inimicorum iniquitas vocat. Iacta alea est.
+>訳 神々のしるしと、敵どもの不正が呼ぶところへ進もう。賽は投げられた
 
 一方、ギリシア人のプルタルコスは、カエサルがギリシア語で「賽を高く投げよ」と言ったと書いている。これはギリシアの喜劇詩人メナンドロスの句で、ギリシア語の教養があるローマの上流階級には通じる言い回しだった。どちらが本当の言葉なのかは分からない【伝承】。
 
@@ -167,9 +182,8 @@ question: ローマはなぜ共和政から皇帝の支配へと移ったのか
 :::topic source | 「ブルートゥス、お前もか」は本当か
 スエトニウスは、暗殺の場面をこう書いている。
 
->>atque ita tribus et viginti plagis confossus est uno modo ad primum ictum gemitu sine voce edito, etsi tradiderunt quidam Marco Bruto irruenti dixisse: καὶ σύ, τέκνον;
-
-「こうして彼は23か所を刺された。最初の一撃でうめき声をもらしただけで、言葉は発しなかった。ただし、襲いかかってきたマルクス・ブルートゥスに向かって、ギリシア語で『子よ、お前もか』と言ったと伝える者もいる」
+>原[grc] atque ita tribus et viginti plagis confossus est uno modo ad primum ictum gemitu sine voce edito, etsi tradiderunt quidam Marco Bruto irruenti dixisse: καὶ σύ, τέκνον;
+>訳 こうして彼は23か所を刺された。最初の一撃でうめき声をもらしただけで、言葉は発しなかった。ただし、襲いかかってきたマルクス・ブルートゥスに向かって、ギリシア語で『子よ、お前もか』と言ったと伝える者もいる
 
 つまりスエトニウス自身は、カエサルは何も言わなかったという立場である。有名な「ブルートゥス、お前もか（Et tu, Brute?）」は、16世紀末のシェイクスピアの劇『ジュリアス・シーザー』で広まったラテン語の台詞で、古代の史料には出てこない。
 -- 出典：スエトニウス『皇帝伝』神君カエサル82。ラテン語原文からの本サイト訳。
@@ -184,6 +198,8 @@ question: ローマはなぜ共和政から皇帝の支配へと移ったのか
 
 ## オクタウィアヌスの登場
 
+@map year=-31 view=20.8,38.95,12 places=actium,actiumcamp,ambracia,preveza routes=cleo legend=b:オクタウィアヌス艦隊;a:アントニウスとクレオパトラ cap="アクティウムの海戦（前31年9月2日）"
+
 カエサルの遺言には、もう一つ大きな驚きがあった。姪の子で、まだ18歳だった[[オクタウィアヌス]]を養子とし、財産の大半を譲るとしていたのである。
 
 オクタウィアヌスは病弱で、戦場での指揮は得意ではなかった。カエサルの部下だったアントニウスは、彼を「カエサルの名のおかげで成り上がった小僧」と侮った。しかしオクタウィアヌスは、カエサルの名前と財産を最大限に利用し、カエサル配下の兵士たちを味方につけていく。
@@ -192,8 +208,9 @@ question: ローマはなぜ共和政から皇帝の支配へと移ったのか
 
 翌前42年、三頭はフィリッピの戦いでブルートゥスとカッシウスを破った。二人とも自殺し、カエサル暗殺者たちの抵抗はここで終わった。
 
-@map year=-31 view=20.8,38.95,12 places=actium,actiumcamp,ambracia,preveza routes=cleo legend=b:オクタウィアヌス艦隊;a:アントニウスとクレオパトラ cap="アクティウムの海戦（前31年9月2日）"
 ## アクティウムの海戦
+
+@map year=14 view=15,40,0.85 hl=ローマ places=rome,actium,alexandria,teutoburg cap="アウグストゥスの死（後14年）のころのローマ"
 
 三頭は、ローマの領土を分けて治めた。オクタウィアヌスが西方を、アントニウスが東方を担当する（レピドゥスは間もなく失脚した）。東方に赴いたアントニウスは、エジプトのクレオパトラと結びつき、やがてオクタウィアヌスの姉オクタウィアを離縁してクレオパトラと暮らすようになった。
 
@@ -216,7 +233,6 @@ question: ローマはなぜ共和政から皇帝の支配へと移ったのか
 -- 出典：プルタルコス『英雄伝』アントニウス伝86
 :::
 
-@map year=14 view=15,40,0.85 hl=ローマ places=rome,actium,alexandria,teutoburg cap="アウグストゥスの死（後14年）のころのローマ"
 ## 「アウグストゥス」の誕生
 
 内乱に勝利したオクタウィアヌスは、カエサルと同じ失敗をしなかった。前27年、彼は手にしていた非常時の大権を元老院と市民に返還し、「共和政を回復した」と宣言する。感激した元老院は、彼に==「アウグストゥス（尊厳者）」という称号を贈った==。
@@ -228,9 +244,8 @@ question: ローマはなぜ共和政から皇帝の支配へと移ったのか
 :::topic source | 『業績録』の言葉
 アウグストゥスは死の直前、自分の業績を記した文章を残し、ローマの霊廟の前に青銅板に刻んで掲げさせた。その写しが、現在のトルコのアンカラの神殿の壁に残っている。『神君アウグストゥスの業績録』である。その一節で、彼はこう書いている。
 
->>post id tempus auctoritate omnibus praestiti, potestatis autem nihilo amplius habui quam ceteri qui mihi quoque in magistratu conlegae fuerunt.
-
-「その時以来、私は権威においてはすべての人にまさったが、権力においては、それぞれの公職で私の同僚であった他の者たち以上のものを持たなかった」
+>原[la] post id tempus auctoritate omnibus praestiti, potestatis autem nihilo amplius habui quam ceteri qui mihi quoque in magistratu conlegae fuerunt.
+>訳 その時以来、私は権威においてはすべての人にまさったが、権力においては、それぞれの公職で私の同僚であった他の者たち以上のものを持たなかった
 
 権力（ポテスタス）ではなく、権威（アウクトリタス）によって国を導いた――アウグストゥスが後世に伝えたかった自画像がよく表れている。もちろん、実態は別の話である。
 -- 出典：『神君アウグストゥスの業績録』34。ラテン語原文からの本サイト訳。

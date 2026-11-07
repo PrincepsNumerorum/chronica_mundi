@@ -98,6 +98,16 @@ question: イングランドとフランスは、なぜ100年以上も戦い続�
 
 @map year=1360 view=1.6,48.3,5.2 places=hw_calais,hw_crecy,hw_sluys,hw_poitiers,hw_bordeaux,hw_paris,hw_castillon,hw_harfleur,hw_agincourt,hw_london legend=a:エドワード3世の進路（1346年）;e:ヘンリ5世の進路（1415年） routes=hw_e3,hw_h5 cap="百年戦争の主な戦い"
 
+:::topic voice | リモージュの「慈悲を」
+1370年、黒太子エドワードは、フランス側に寝返った町リモージュを攻め落とした。病に冒され、輿に乗って指揮をとっていた黒太子の怒りは激しかった。年代記作者フロワサールは、こう書いている。
+
+>原[fr] …… et estoit grans pitiés de veoir les hommes, les femmes et les enfans qui se jettoient en genouls devant le prince et crioient : « Merci, gentilz sires ! » Mais il estoit si enflammés d'aïr que point n'i entendoit ……
+>訳 ……男も女も子どもも、王子の前にひざまずいて、「お慈悲を、高貴な殿！」と叫ぶさまは、見るも痛ましかった。しかし、王子は怒りに燃え上がっていて、まったく耳を貸さなかった。……
+-- 出典：フロワサール『年代記』第1巻
+
+フロワサールは、この日、3000人以上が殺されたと書いている。しかし、現在の研究では、実際の死者は300人ほどで、多くは守備兵であったと考えられている【諸説】。騎士道の華とたたえられた黒太子のイメージは、この記述によって、のちのフランスで大きく傷つけられた。
+:::
+
 ## 狂気の王と内乱
 
 ### 燃える仮装舞踏会
@@ -175,9 +185,8 @@ Shall be my brother.
 :::topic source | 「天の王の使いの乙女」――イングランド王への手紙
 1429年3月、ジャンヌは、オルレアンを包囲するイングランド軍に、手紙を送った。字の読み書きのできなかったジャンヌが口述したこの手紙は、こう始まっている。
 
->>JHESUS MARIA. Roy d'Angleterre, et vous, duc de Bedfort, qui vous dictes régent le royaume de France……faictes raison au Roy du ciel ; rendez à la Pucelle, qui est cy envoiée de par Dieu, le Roy du ciel, les clefs de toutes les bonnes villes que vous avez prinses et violées en France.
-
-「イエス・マリア。イングランド王よ、そしてフランス王国の摂政を名乗るベッドフォード公よ……天の王に正しい道理を示せ。天の王である神によってここに遣わされた乙女に、あなた方がフランスで奪い、汚したすべての良き町の鍵を返せ」
+>原[fr] JHESUS MARIA. Roy d'Angleterre, et vous, duc de Bedfort, qui vous dictes régent le royaume de France……faictes raison au Roy du ciel ; rendez à la Pucelle, qui est cy envoiée de par Dieu, le Roy du ciel, les clefs de toutes les bonnes villes que vous avez prinses et violées en France.
+>訳 イエス・マリア。イングランド王よ、そしてフランス王国の摂政を名乗るベッドフォード公よ……天の王に正しい道理を示せ。天の王である神によってここに遣わされた乙女に、あなた方がフランスで奪い、汚したすべての良き町の鍵を返せ
 
 イングランドの将軍たちは、この手紙をあざ笑い、ジャンヌを「魔女」と呼んだ。
 -- 出典：ジャンヌ＝ダルク「イングランド人への手紙」（1429年3月22日）。J. Quicherat 編『ジャンヌ＝ダルクの処刑裁判と復権裁判』所収の本文からの本サイト訳。
@@ -204,9 +213,8 @@ Shall be my brother.
 
 これは、恐ろしい罠であった。「はい」と答えれば、神の恵みは人間には分からないとする教会の教えに反する思い上がりとなる。「いいえ」と答えれば、自分が罪の中にいると認めることになる。ジャンヌは、こう答えた。
 
->>Si je n'y suis, Dieu m'y veuille mettre ; et si j'y suis, Dieu m'y veuille garder.
-
-「もし私が恵みの中にいないのなら、神が私をそこに置いてくださいますように。もし私が恵みの中にいるのなら、神が私をそこにとどめてくださいますように」
+>原[fr] Si je n'y suis, Dieu m'y veuille mettre ; et si j'y suis, Dieu m'y veuille garder.
+>訳 もし私が恵みの中にいないのなら、神が私をそこに置いてくださいますように。もし私が恵みの中にいるのなら、神が私をそこにとどめてくださいますように
 
 記録によれば、この答えを聞いた裁判官たちは、驚きのあまり、その日の審問を打ち切ったという。
 -- 出典：『ジャンヌ＝ダルク処刑裁判記録』1431年2月24日の審問。本サイト訳。
@@ -286,28 +294,6 @@ Shall be my brother.
 :::
 
 !image file="Reconstruction of Richard III's Face.jpg" cap="発見された頭蓋骨をもとに復元されたリチャード3世の顔（2013年）。"
-
-:::widget timeline | 百年戦争とバラ戦争
-{"from":1320,"to":1490,"tick":10,"labelW":220,"start":1429,
-"groups":{"e":"a","f":"e","x":"d","r":"g"},
-"hint":"バーにカーソルを合わせる（タップする）と説明が出る。",
-"rows":[
-["エドワード3世（英）",1327,1377,"e","フランス王位を要求"],
-["フィリップ6世（仏）",1328,1350,"f","ヴァロワ朝の始まり"],
-["クレシーの戦い",1346,1346,"x","長弓兵の勝利"],
-["カレーの包囲と占領",1346,1347,"x","カレーの市民"],
-["ポワティエの戦い",1356,1356,"x","ジャン2世が捕虜に"],
-["シャルル5世（仏）",1364,1380,"f","失地の回復"],
-["シャルル6世（仏）",1380,1422,"f","心の病と内乱"],
-["ヘンリ5世（英）",1413,1422,"e","アザンクールの勝利"],
-["アザンクールの戦い",1415,1415,"x","フランス貴族の大量の戦死"],
-["トロワ条約",1420,1420,"x","ヘンリ5世がフランス王位継承者に"],
-["ジャンヌ＝ダルクの活躍",1429,1431,"f","オルレアン解放"],
-["シャルル7世（仏）",1422,1461,"f","常備軍と大砲"],
-["カスティヨンの戦い",1453,1453,"x","百年戦争の終わり"],
-["バラ戦争",1455,1485,"r","ランカスター家とヨーク家"],
-["ボズワースの戦い",1485,1485,"r","テューダー朝の始まり"]]}
-:::
 
 :::contemp 1429 15
 

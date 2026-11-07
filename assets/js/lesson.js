@@ -5,17 +5,29 @@
   class Stage {
     constructor(el) {
       this.el = el; this.kind = null; this.map = null; this.battle = null; this.other = null;
-      this.mapHost = CM.h('div', { style: 'position:absolute;inset:0' });
-      this.otherHost = CM.h('div', { style: 'position:absolute;inset:0;display:none' });
+      this.mapHost = CM.h('div', { class: 'stage-host', style: 'position:absolute;inset:0' });
+      this.otherHost = CM.h('div', { class: 'stage-host', style: 'position:absolute;inset:0;display:none' });
       this.bar = CM.h('div', { class: 'stage-bar' }, '<button type="button" class="btn" data-a="collapse">図を縮める</button><span class="muted" data-r="label"></span>');
       el.append(this.mapHost, this.otherHost, this.bar);
       this.bar.addEventListener('click', (e) => { if (e.target.closest('[data-a=collapse]')) { el.classList.toggle('collapsed'); e.target.textContent = el.classList.contains('collapsed') ? '図を広げる' : '図を縮める'; } });
+    }
+    blank() {
+      if (this.lastKey === 'blank') return;
+      this.lastKey = 'blank';
+      if (this.battle) { this.battle.destroy(); this.battle = null; this.battleId = null; }
+      if (this.map) this.map.stopPlay();
+      this.mapHost.style.display = 'none'; this.otherHost.style.display = '';
+      this.otherHost.innerHTML = '<div class="stage-wait">本文を読み進めると、ここに地図や図版が表示される。</div>';
     }
     async show(sc) {
       if (!sc) return;
       const key = JSON.stringify(sc);
       if (key === this.lastKey) return;
       this.lastKey = key;
+      // same view as now: do not re-fly (only overlays change while reading)
+      if (sc.type === 'map' && this.map && this.mapHost.style.display !== 'none' && sc.view && this.lastView === JSON.stringify(sc.view) && this.lastYear === sc.year) { this.map.setOverlays(sc); this.map.setCaption(sc.caption ? CM.esc(sc.caption) : ''); return; }
+      if (sc.type === 'map') { this.lastView = JSON.stringify(sc.view || null); this.lastYear = sc.year; } else { this.lastView = null; }
+      this.el.dataset.kind = sc.type;
       this.bar.querySelector('[data-r=label]').textContent = sc.type === 'battle' ? '戦況図' : sc.type === 'map' ? '地図' : '図版';
       if (sc.type === 'map') {
         this.otherHost.style.display = 'none'; this.mapHost.style.display = '';
@@ -108,7 +120,7 @@
         '<h1>' + CM.esc(L.title) + '</h1><div class="chips"><span class="chip num">' + CM.esc(L.period || '') + '</span>' + (L.regions || []).map(r => '<span class="chip">' + CM.esc(CM.REGION_JA[r] || r) + '</span>').join('') + '<span class="chip">約' + Math.max(5, Math.round((L.chars || 0) / 600)) + '分</span></div>' +
         (L.question ? '<div class="question"><b>この回の問い</b><span>' + CM.esc(L.question) + '</span></div>' : '') +
         '<nav class="toc"><span class="eyebrow">目次</span><ol>' + (L.toc || []).map(t => '<li><a href="#" data-anchor="' + t.id + '">' + CM.esc(t.t) + '</a></li>').join('') + '</ol></nav></header><div class="prose" id="lprose">';
-      L.scenes.forEach((s, i) => { html += '<section class="scene" data-i="' + i + '">' + (s.stage ? '<button type="button" class="scene-cue">' + CM.esc(s.cue || cueText(s.stage)) + '</button>' : '') + s.html + '</section>'; });
+      L.scenes.forEach((s, i) => { html += '<section class="scene" data-i="' + i + '">' + (s.stage && s.stage.type !== 'pre' ? '<button type="button" class="scene-cue">' + CM.esc(s.cue || cueText(s.stage)) + '</button>' : '') + s.html + '</section>'; });
       html += '</div><footer class="lesson-foot" id="lfoot">';
       if (L.summary && L.summary.length) html += '<h2 style="font-size:1.2rem">まとめ</h2><div class="summary"><ol>' + L.summary.map(s => '<li>' + s + '</li>').join('') + '</ol></div>';
       if (L.quiz && L.quiz.length) html += '<h2 style="font-size:1.2rem;margin-top:1.8em">確認問題</h2><div id="lquiz"></div>';
@@ -124,31 +136,96 @@
       art.querySelectorAll('.contemp[data-y]').forEach(el => renderContemp(L, el));
       art.querySelectorAll('[data-anchor]').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); const t = document.getElementById(a.dataset.anchor); if (t) t.scrollIntoView({ behavior: CM.reducedMotion() ? 'auto' : 'smooth' }); }));
       art.querySelectorAll('a[href^="#fn-"], a[href^="#src-"]').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); const t = document.getElementById(a.getAttribute('href').slice(1)); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'center' }); }));
-      // stage
+      // stage: follows the reading position paragraph by paragraph
       const stage = this.stage = new Stage(document.getElementById('lstage'));
       const scenes = [...art.querySelectorAll('.scene')];
-      let active = -1;
-      const activate = (i) => {
-        if (i === active) return;
-        // find the nearest scene at or before i that has a stage
-        let k = i; while (k >= 0 && !L.scenes[k].stage) k--;
-        if (k < 0) k = L.scenes.findIndex(s => s.stage);
-        scenes.forEach((s, j) => s.classList.toggle('active', j === i));
-        active = i;
-        if (k >= 0) stage.show(L.scenes[k].stage);
+      const steps = [];
+      scenes.forEach((s, si) => { const kids = [...s.children].filter(c => !c.classList.contains('scene-cue')); (kids.length ? kids : [s]).forEach(el => steps.push({ el, si })); });
+      const mapScenes = L.scenes.map((s, i) => (s.stage && s.stage.type === 'map') ? i : -1).filter(i => i >= 0);
+      // the map shown before the first figure of the lesson: an end-of-lesson overview map if there is one, otherwise the first map
+      let pre = null;
+      if (mapScenes.length) {
+        const li = mapScenes[mapScenes.length - 1];
+        const tail = (scenes[li].textContent || '').replace(/\s+/g, '').length;
+        pre = Object.assign({}, L.scenes[tail < 500 ? li : mapScenes[0]].stage);
+        delete pre.play; if (pre.caption) pre.caption = pre.caption;
+      }
+      const ready = (async () => {
+        if (!pre) {
+          const fb = L.scenes.find(s => s.stage && s.stage.type === 'battle');
+          if (fb) { try { const d = await CM.loadBattle(fb.stage.id); const c = d.geo ? d.geo.c : [d.lon, d.lat]; pre = { type: 'map', year: d.y, view: [c[0], c[1], 1.6], places: [], caption: '' }; } catch (e) { /* none */ } }
+        }
+        try { await CM.loadAll(['data/geo/places.js', 'data/geo/routes.js']); } catch (e) { /* offline */ }
+      })();
+      // first paragraph that mentions each place / route of the lesson's maps
+      const texts = steps.map(s => (s.el.textContent || '').replace(/\s+/g, ''));
+      const first = {};
+      const firstHit = (alts) => { alts = alts.filter(x => x && x.length >= 2); if (!alts.length) return Infinity; for (let k = 0; k < texts.length; k++) if (alts.some(x => texts[k].includes(x))) return k; return Infinity; };
+      const placeAlts = (id) => { const p = CM.places[id]; if (!p || !p.ja) return []; const n = p.ja.replace(/（[^）]*）|\([^)]*\)/g, '').replace(/\s+/g, ''); return n.split(/[・／\/]/).concat([n]); };
+      const routeAlts = (id) => { const r = CM.routes[id]; if (!r) return []; return [r.label].concat((r.pts || []).map(p => p[2])).filter(Boolean).map(x => String(x).replace(/（[^）]*）|\([^)]*\)/g, '').replace(/\s+/g, '')); };
+      const computeFirst = () => {
+        const sts = L.scenes.map(s => s.stage).concat(pre ? [pre] : []).filter(s => s && s.type === 'map');
+        sts.forEach(st => { (st.places || []).concat(st.pulses || []).forEach(id => { if (!(('p:' + id) in first)) first['p:' + id] = firstHit(placeAlts(id)); }); });
+        sts.forEach(st => {
+          (st.routes || []).forEach(id => {
+            if (('r:' + id) in first) return;
+            const r = CM.routes[id] || {};
+            const leg = (st.legend || []).filter(it => it.c === r.c && (st.routes || []).filter(x => (CM.routes[x] || {}).c === r.c).length === 1).map(it => it.t.replace(/（[^）]*）|\([^)]*\)/g, '').replace(/\s+/g, ''));
+            let tm = firstHit(routeAlts(id).concat(leg));
+            // otherwise: when the places at both ends of the route have been mentioned
+            const pts = r.pts || [];
+            if (tm === Infinity && pts.length >= 2) {
+              const span = Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]);
+              const tol = Math.max(0.35, Math.min(1.5, span * 0.25));
+              const near = (q) => { let best = null, bd = tol; (st.places || []).forEach(pid => { const p = CM.places[pid]; if (!p || p.lon == null) return; const d = Math.hypot(p.lon - q[0], p.lat - q[1]); if (d < bd) { bd = d; best = pid; } }); return best; };
+              const e0 = near(pts[0]), e1 = near(pts[pts.length - 1]);
+              const ts = [e0, e1].filter(Boolean).map(pid => first['p:' + pid]).filter(x => x != null && x !== Infinity);
+              // the actor named in the legend ("中国人民志願軍の反撃" -> 中国人民志願軍) must also have appeared
+              const heads = leg.map(x => x.split('の')[0]).filter(x => x.length >= 3);
+              const th = heads.length ? firstHit(heads) : Infinity;
+              if (th !== Infinity) ts.push(th);
+              if (ts.length) tm = Math.max.apply(null, ts);
+            }
+            first['r:' + id] = tm;
+          });
+        });
       };
-      scenes.forEach((s, i) => { const b = s.querySelector('.scene-cue'); if (b) b.addEventListener('click', () => { stage.lastKey = null; activate(i); active = i; }); });
+      const stageAt = (k) => {
+        const si = steps[k].si;
+        let j = si; while (j >= 0 && !L.scenes[j].stage) j--;
+        let base = j >= 0 ? L.scenes[j].stage : pre;
+        if (base && base.type === 'pre') base = pre;
+        if (!base) return null;
+        if (base.type !== 'map' || base.play) return base;
+        const end = k >= steps.length - 1 || steps.slice(k + 1).every(s => !(s.el.textContent || '').trim());
+        const vis = (arr, pfx) => (arr || []).filter(id => { const m = first[pfx + id]; return end || m == null || m === Infinity || m <= k; });
+        const fresh = (base.places || []).filter(id => first['p:' + id] === k);
+        const routes = vis(base.routes, 'r:');
+        const cols = new Set(routes.map(id => (CM.routes[id] || {}).c)), allCols = new Set((base.routes || []).map(id => (CM.routes[id] || {}).c));
+        const legend = base.legend ? base.legend.filter(it => !allCols.has(it.c) || cols.has(it.c)) : base.legend;
+        return Object.assign({}, base, { places: vis(base.places, 'p:'), routes, legend, pulses: vis(base.pulses, 'p:').concat(fresh) });
+      };
+      let active = -1, activeStep = -1;
+      const showStep = (k) => {
+        if (k === activeStep) return;
+        activeStep = k;
+        const si = steps[k].si;
+        if (si !== active) { scenes.forEach((s, j) => s.classList.toggle('active', j === si)); active = si; }
+        const st = stageAt(k);
+        if (st) stage.show(st); else stage.blank(L);
+      };
+      scenes.forEach((s, i) => { const b = s.querySelector('.scene-cue'); if (b) b.addEventListener('click', () => { stage.lastKey = null; activeStep = -1; const k = steps.findIndex(x => x.si === i); showStep(Math.max(0, k)); }); });
       const pick = () => {
-        const mobile = matchMedia('(max-width: 760px)').matches;
+        const mobile = matchMedia('(max-width: 900px)').matches;
         const line = mobile ? innerHeight * 0.62 : innerHeight * 0.42;
-        let best = 0;
-        for (let j = 0; j < scenes.length; j++) { if (scenes[j].getBoundingClientRect().top <= line) best = j; else break; }
-        activate(best);
+        let lo = 0, hi = steps.length - 1, best = 0;
+        while (lo <= hi) { const mid = (lo + hi) >> 1; if (steps[mid].el.getBoundingClientRect().top <= line) { best = mid; lo = mid + 1; } else hi = mid - 1; }
+        showStep(best);
       };
       let ticking = false;
       this.onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(() => { ticking = false; pick(); }); } };
       window.addEventListener('scroll', this.onScroll, { passive: true });
-      activate(0);
+      ready.then(() => { computeFirst(); activeStep = -1; pick(); });
       // mark read at the end
       this.io2 = new IntersectionObserver((en) => { if (en.some(e => e.isIntersecting)) CM.progress.markRead(id); }, {});
       this.io2.observe(document.getElementById('lfoot'));

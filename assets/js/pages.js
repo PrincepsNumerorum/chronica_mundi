@@ -3,7 +3,7 @@
   'use strict';
   CM.REGION_JA = { cn: '中国', kj: '朝鮮・日本', ia: '内陸アジア', sa: '南アジア', se: '東南アジア', wa: '西アジア・北アフリカ', eu: 'ヨーロッパ', ru: 'ロシア・東欧', af: 'アフリカ', am: '南北アメリカ', oc: 'オセアニア', gl: '世界・国際' };
   CM.REGION_KEYS = Object.keys(CM.REGION_JA);
-  const TOPIC_JA = { trivia: 'こぼれ話', source: '史料', life: '暮らし', debate: '諸説あり', confuse: '混同注意', view: '視点を変える', now: 'いま', person: '人物', war: '戦術', term: '用語', myth: '俗説', works: '作品紹介', mech: 'しくみ' };
+  const TOPIC_JA = { voice: '証言', trivia: 'こぼれ話', source: '史料', life: '暮らし', debate: '諸説あり', confuse: '混同注意', view: '視点を変える', now: 'いま', person: '人物', war: '戦術', term: '用語', myth: '俗説', works: '作品紹介', mech: 'しくみ' };
   CM.TOPIC_JA = TOPIC_JA;
   const KANA_LABEL = { a: 'あ', ka: 'か', sa: 'さ', ta: 'た', na: 'な', ha: 'は', ma: 'ま', ya: 'や', ra: 'ら', wa: 'わ', etc: '他' };
 

@@ -52,7 +52,28 @@ def inline(s, ctx):
     s = re.sub(r'｜([^｜《]+?)《([^》]+)》', r'<ruby>\1<rt>\2</rt></ruby>', s)
     s = re.sub(r'(' + KANJI + r'+)《([^》]+)》', r'<ruby>\1<rt>\2</rt></ruby>', s)
     s = re.sub(r'【(史実|通説|諸説|伝承|俗説)】', lambda m: '<span class="lbl lbl-%s">%s</span>' % (LABELS[m.group(1)], m.group(1)), s)
+    s = xref(s)
     return s
+
+LESSON_TITLES = {}
+_XT = []
+def xref(s):
+    """turn (→「title」の回) cross references into links to the lesson"""
+    if '→' not in s or not LESSON_TITLES: return s
+    if not _XT: _XT.extend(sorted(LESSON_TITLES, key=len, reverse=True))
+    def one(m):
+        seg = m.group(1)
+        for title in _XT:
+            k = '「' + title + '」'
+            if k in seg: seg = seg.replace(k, '\x01%s\x02' % LESSON_TITLES[title])
+        seg = re.sub(r'\x01([\w-]+)\x02', lambda mm: '<a class="xref" href="#/lesson/%s">「%s」</a>' % (mm.group(1), ID2TITLE[mm.group(1)]), seg)
+        return '→' + seg + 'の回'
+    return re.sub(r'→((?:(?!の回).){1,160}?)の回', one, s)
+ID2TITLE = {}
+def load_titles():
+    for ln in open(os.path.join(SRC, 'curriculum.txt'), encoding='utf-8'):
+        cols = [x.strip() for x in ln.split('|')]
+        if len(cols) >= 3 and re.match(r'^[\dT]+-\d+$', cols[0]): LESSON_TITLES[cols[2]] = cols[1]; ID2TITLE[cols[1]] = cols[2]
 
 def fnref(key, ctx):
     if key not in ctx.fn:
@@ -60,6 +81,7 @@ def fnref(key, ctx):
     return '<sup class="fn"><a href="#src-%s">[%d]</a></sup>' % (key, ctx.fn[key])
 
 def plain(s):
+    s = re.sub(r'<rt>.*?</rt>', '', s)
     s = re.sub(r'<[^>]+>', '', s)
     return H.unescape(re.sub(r'\s+', ' ', s)).strip()
 
@@ -78,6 +100,80 @@ def commons_search(f):
     from urllib.parse import quote
     stem = re.sub(r'\.(jpe?g|png|gif|svg|tiff?)$', '', f.replace('_', ' '), flags=re.I)
     return 'https://commons.wikimedia.org/w/index.php?search=' + quote(stem) + '&title=Special:MediaSearch&type=image'
+
+MEDIA_LOG = []
+COMMONS_FP = 'https://commons.wikimedia.org/wiki/Special:FilePath/'
+CW_NOTE = ('<div class="cw-note"><b>閲覧注意</b>　この回には、遺体や飢餓、暴力の痕跡など、見る人によっては強い衝撃を受ける写真や映像が含まれている。'
+           'これらにはぼかしをかけてあり、クリックすると表示される（画面右上の設定で、ぼかしを一括で外すこともできる）。'
+           '歴史の事実を伝える記録として掲載している。</div>')
+
+def commons_transcode(f):
+    import hashlib
+    from urllib.parse import quote
+    h = hashlib.md5(f.encode('utf-8')).hexdigest()
+    q = quote(f)
+    return 'https://upload.wikimedia.org/wikipedia/commons/transcoded/%s/%s/%s/%s' % (h[0], h[:2], q, q)
+
+def commons_audio_mp3(f):
+    import hashlib
+    from urllib.parse import quote
+    h = hashlib.md5(f.encode('utf-8')).hexdigest()
+    q = quote(f)
+    return 'https://upload.wikimedia.org/wikipedia/commons/transcoded/%s/%s/%s/%s.mp3' % (h[0], h[:2], q, q)
+
+def media_html(kind, a, ctx):
+    """!image / !video / !audio  file="..." cap="..." [nsfw=1] [archive=ID] [warn="..."]"""
+    from urllib.parse import quote
+    cap = a.get('cap', '')
+    caph = inline(cap, ctx)
+    nsfw = bool(a.get('nsfw'))
+    if a.get('youtube'):
+        yid = a['youtube']; st = a.get('start', '')
+        src_link = 'https://www.youtube.com/watch?v=%s%s' % (yid, ('&t=%ss' % st) if st else '')
+        # click-to-play facade: YouTube refuses embeds without a Referer (error 153), e.g. pages opened as local files
+        body = ('<div class="ytf" data-yt="%s" data-start="%s"><img loading="lazy" src="https://i.ytimg.com/vi/%s/hqdefault.jpg" alt="%s">'
+                '<button type="button" class="ytplay" aria-label="再生">▶</button></div>'
+                % (H.escape(yid), H.escape(st), H.escape(yid), H.escape(plain(cap))))
+    elif a.get('archive'):
+        aid = a['archive']
+        page = 'https://archive.org/details/' + aid
+        body = '<iframe loading="lazy" src="https://archive.org/embed/%s" allowfullscreen title="%s"></iframe>' % (H.escape(aid), H.escape(plain(cap)))
+        src_link = page
+    else:
+        from urllib.parse import unquote
+        f = unquote(a['file']).replace('File:', '').replace(' ', '_')
+        fq = quote(f)
+        src_link = 'https://commons.wikimedia.org/wiki/File:' + fq
+        if kind == 'image':
+            body = '<img loading="lazy" src="%s%s?width=1000" alt="%s">' % (COMMONS_FP, fq, H.escape(plain(cap)))
+        elif kind == 'video':
+            # Commons re-encodes every video as WebM (VP9). Theora (.ogv) no longer decodes in Chrome
+            # (only the Vorbis audio plays), so the transcodes come first and the original last.
+            tc = commons_transcode(f)
+            srcs = ''.join('<source src="%s.%s" type="video/webm">' % (tc, r) for r in ('480p.vp9.webm', '360p.vp9.webm', '240p.vp9.webm', '360p.webm', '240p.webm'))
+            otype = ' type="video/ogg; codecs=&quot;theora, vorbis&quot;"' if f.lower().endswith('.ogv') else ''
+            if f.lower().endswith('.webm'):
+                srcs = '<source src="%s%s" type="video/webm">' % (COMMONS_FP, fq) + srcs
+            else:
+                srcs += '<source src="%s%s"%s>' % (COMMONS_FP, fq, otype)
+            body = '<video controls preload="none" playsinline poster="%s%s?width=960">%s</video>' % (COMMONS_FP, fq, srcs)
+        else:
+            body = ('<audio controls preload="none"><source src="%s%s"><source src="%s" type="audio/mpeg"></audio>'
+                    % (COMMONS_FP, fq, commons_audio_mp3(f)))
+    if nsfw:
+        warn = a.get('warn', '遺体や負傷の様子などが写っています')
+        body = ('<div class="cwbox">%s<button type="button" class="cwbtn">⚠ 閲覧注意<small>%s。クリックすると表示します</small></button></div>'
+                % (body, H.escape(warn)))
+    MEDIA_LOG.append((kind, plain(cap), src_link))
+    if kind == 'image':
+        fb = '画像はオンライン時に表示される（<a href="%s" target="_blank" rel="noopener">Wikimedia Commonsで見る</a>）' % (src_link)
+        return ('<figure class="img%s">%s<div class="fallback">%s</div><figcaption>%s%s</figcaption></figure>'
+                % (' nsfw' if nsfw else '', body, fb, caph, '<button type="button" class="cwhide">ぼかしを戻す</button>' if nsfw else ''))
+    label = '映像' if kind == 'video' else '音声'
+    fb = 'この%sは、お使いのブラウザでは再生できない場合がある。<a href="%s" target="_blank" rel="noopener">出典のページで再生する</a>' % (label, src_link)
+    return ('<figure class="media %s%s"><div class="mwrap">%s</div><div class="fallback">%s</div><figcaption><span class="mkind">%s</span>%s'
+            '<a class="msrc" href="%s" target="_blank" rel="noopener">出典</a>%s</figcaption></figure>'
+            % (kind, ' nsfw' if nsfw else '', body, fb, label, caph, src_link, '<button type="button" class="cwhide">ぼかしを戻す</button>' if nsfw else ''))
 
 def stage_from(line, figures):
     kind, _, rest = line[1:].partition(' ')
@@ -103,12 +199,15 @@ def stage_from(line, figures):
         return {'type': 'battle', 'id': bid, 'phase': num(a.get('phase', 0)), 'cue': a.get('cue', '戦況図を表示')}
     if kind == 'image':
         f = a['file'].replace('File:', '').replace(' ', '_')
+        MEDIA_LOG.append(('image', plain(a.get('cap', '')), 'https://commons.wikimedia.org/wiki/File:' + f))
         return {'type': 'image', 'src': 'https://commons.wikimedia.org/wiki/Special:FilePath/%s?width=1400' % f,
                 'page': commons_search(f), 'cap': a.get('cap', ''), 'cue': a.get('cue', '図版を表示')}
     if kind == 'figure':
         fid = rest.split()[0]
         if fid not in figures: WARN.append('figure not defined before use: ' + fid)
         return {'type': 'figure', 'html': figures.get(fid, ''), 'cue': a.get('cue', '図解を表示')}
+    if kind == 'pre':
+        return {'type': 'pre'}
     if kind == 'scene':
         return None
     WARN.append('unknown directive ' + line)
@@ -116,9 +215,14 @@ def stage_from(line, figures):
 
 def render_paras(lines, ctx):
     """lines: plain text lines (no fences). returns html"""
-    out = []; buf = []; lst = None; tbl = []
+    out = []; buf = []; lst = None; tbl = []; sq = []
+    SQ = {'原': ('o', '原文'), '読': ('k', '書き下し'), '訳': ('t', '現代語訳'), '意': ('t', '意訳')}
     def flush():
-        nonlocal buf, lst, tbl
+        nonlocal buf, lst, tbl, sq
+        if sq:
+            rows = ''.join('<div class="sq-%s"><span class="sq-l">%s</span><div class="sq-b"%s>%s</div></div>' % (SQ[k][0], SQ[k][1], (' lang="%s"' % lg) if lg else '', re.sub(r'\s*(?:／| / )\s*', '<br>', inline(t, ctx))) for k, lg, t in sq if k != '--')
+            cite = ''.join('<p class="cite">%s</p>' % inline(t, ctx) for k, lg, t in sq if k == '--')
+            out.append('<div class="srcq">' + rows + cite + '</div>'); sq = []
         if buf:
             out.append('<p>' + inline(''.join(x.strip() for x in buf), ctx) + '</p>'); buf = []
         if lst:
@@ -132,6 +236,17 @@ def render_paras(lines, ctx):
     for ln in lines:
         s = ln.rstrip()
         if not s.strip(): flush(); continue
+        m = re.match(r'^>(原|読|訳|意)(?:\[([\w-]+)\])?\s+(.*)', s)
+        if m:
+            if buf or lst or tbl:
+                keep = sq; sq = []; flush(); sq = keep
+            sq.append((m.group(1), m.group(2), m.group(3))); continue
+        if sq and s.startswith('-- '):
+            sq.append(('--', None, s[3:].strip())); continue
+        if sq: flush()
+        mm = re.match(r'^\s*!(image|video|audio)\b(.*)', s)
+        if mm:
+            flush(); out.append(media_html(mm.group(1), parse_attrs(mm.group(2)), ctx)); continue
         if s.startswith('>>'):
             flush(); out.append('<p class="orig">' + inline(s[2:].strip(), ctx) + '</p>'); continue
         if s.startswith('-- '):
@@ -153,8 +268,8 @@ def render_paras(lines, ctx):
     flush()
     return ''.join(out)
 
-TOPIC_KINDS = {'trivia', 'source', 'life', 'debate', 'confuse', 'view', 'now', 'person', 'war', 'term', 'myth', 'works', 'mech'}
-TOPIC_JA = {'trivia': 'こぼれ話', 'source': '史料', 'life': '暮らし', 'debate': '諸説あり', 'confuse': '混同注意', 'view': '視点を変える', 'now': 'いま', 'person': '人物', 'war': '戦術', 'term': '用語', 'myth': '俗説', 'works': '作品紹介', 'mech': 'しくみ'}
+TOPIC_KINDS = {'voice', 'trivia', 'source', 'life', 'debate', 'confuse', 'view', 'now', 'person', 'war', 'term', 'myth', 'works', 'mech'}
+TOPIC_JA = {'voice': '証言', 'trivia': 'こぼれ話', 'source': '史料', 'life': '暮らし', 'debate': '諸説あり', 'confuse': '混同注意', 'view': '視点を変える', 'now': 'いま', 'person': '人物', 'war': '戦術', 'term': '用語', 'myth': '俗説', 'works': '作品紹介', 'mech': 'しくみ'}
 
 def parse_front(text):
     m = re.match(r'^---\n(.*?)\n---\n', text, re.S)
@@ -174,6 +289,8 @@ def build_lesson(path, all_topics, search):
     ctx = Ctx()
     lines = body.split('\n')
     scenes = [{'stage': None, 'parts': []}]
+    cw_flag = [False]
+    MEDIA_LOG.clear()
     toc = []; figures = {}; geo = {}; summary = []; quiz = []; sources = []
     i = 0; hcount = 0; tcount = 0; para = []
     def cur(): return scenes[-1]['parts']
@@ -215,7 +332,13 @@ def build_lesson(path, all_topics, search):
             elif kind == 'widget':
                 wname, _, cap = arg.partition('|'); wname = wname.strip()
                 body = '\n'.join(blk).strip() or '{}'
-                try: json.loads(body)
+                try:
+                    def _walk(o):
+                        if isinstance(o, str): return xref(o)
+                        if isinstance(o, list): return [_walk(x) for x in o]
+                        if isinstance(o, dict): return {k: _walk(v) for k, v in o.items()}
+                        return o
+                    body = json.dumps(_walk(json.loads(body)), ensure_ascii=False)
                 except Exception as e: WARN.append('%s: widget %s bad JSON: %s' % (lid, wname, e)); body = '{}'
                 cur().append('<figure class="widget" data-w="%s" data-p="%s"><div class="wbody"></div>%s</figure>' % (wname, H.escape(body, quote=True), ('<figcaption>%s</figcaption>' % inline(cap.strip(), ctx)) if cap.strip() else ''))
             elif kind == 'geo':
@@ -251,14 +374,20 @@ def build_lesson(path, all_topics, search):
             stage = stage_from(st, figures)
             scenes.append({'stage': stage, 'parts': []})
             i += 1; continue
-        if st.startswith('!image'):
+        if st.startswith('!image') or st.startswith('!video') or st.startswith('!audio'):
             flush_para()
+            kind = st[1:6]
             a = parse_attrs(st[6:])
-            f = a['file'].replace('File:', '').replace(' ', '_')
-            cur().append('<figure class="img"><img loading="lazy" src="https://commons.wikimedia.org/wiki/Special:FilePath/%s?width=1000" alt="%s"><div class="fallback">画像はオンライン時に表示される（<a href="%s" target="_blank" rel="noopener">Wikimedia Commonsで探す</a>）</div><figcaption>%s</figcaption></figure>' % (f, H.escape(plain(a.get('cap', ''))), commons_search(f), inline(a.get('cap', ''), ctx)))
+            cur().append(media_html(kind, a, ctx))
+            if a.get('nsfw'): cw_flag[0] = True
             i += 1; continue
         if st.startswith('## '):
-            flush_para(); hcount += 1
+            flush_para()
+            # a battle / picture shown on the right does not carry over into the next chapter: fall back to the lesson map
+            last = next((x['stage'] for x in reversed(scenes) if x['stage']), None)
+            if last and last.get('type') in ('battle', 'image', 'figure'):
+                scenes.append({'stage': {'type': 'pre'}, 'parts': []})
+            hcount += 1
             title = st[3:].strip(); aid = '%s-h%d' % (lid, hcount)
             toc.append({'id': aid, 't': plain(inline(title, ctx))})
             cur().append('<h2 id="%s"><span class="hno">%d</span>%s</h2>' % (aid, hcount, inline(title, ctx)))
@@ -267,12 +396,31 @@ def build_lesson(path, all_topics, search):
             flush_para(); cur().append('<h3>%s</h3>' % inline(st[4:].strip(), ctx)); i += 1; continue
         para.append(ln); i += 1
     flush_para()
+    if MEDIA_LOG:
+        seen = set(); items = []
+        KJ = {'image': '図版', 'video': '映像', 'audio': '音声'}
+        for k, c, u in MEDIA_LOG:
+            if u in seen: continue
+            seen.add(u)
+            c1 = re.split(r'(?<=）)。|。', c)[0] if c else ''
+            if len(c1) > 70: c1 = c1[:68] + '…'
+            host = 'YouTube' if 'youtube' in u else ('Internet Archive' if 'archive.org' in u else 'Wikimedia Commons')
+            items.append('<li><span class="mk">%s</span>%s（<a href="%s" target="_blank" rel="noopener">%s</a>）</li>' % (KJ.get(k, k), H.escape(c1), H.escape(u), host))
+        sources.append({'k': 'm', 'h': '<b>掲載した図版・写真・映像・音声</b><ul class="mlist">' + ''.join(items) + '</ul>'})
+    if cw_flag[0]:
+        scenes[0]['parts'].insert(0, CW_NOTE)
     out_scenes = []
     nl = meta.get('nolink', [])
     if isinstance(nl, str): nl = nl.split(',')
     used = set(ctx.terms) | {x.strip() for x in nl if x.strip()}
+    # furigana: glossary/curated difficult words + words the author glossed in this lesson, on every occurrence
+    lruby = dict(RUBY)
+    for m in re.finditer(r'｜([^｜《\n]{2,12})《([^》\n]+)》', body): lruby.setdefault(m.group(1), m.group(2))
+    for m in re.finditer('(' + KANJI + r'{2,12})《([^》\n]+)》', body): lruby.setdefault(m.group(1), m.group(2))
+    duals = {k: v for k, v in DUAL.items() if not v[2] or lid in v[2]}
+    for k, v in duals.items(): lruby.setdefault(k, v[0])
     for sc in scenes:
-        htm = autolink(''.join(sc['parts']), TERM_NAMES, used)
+        htm = dual_ruby(ruby_all(autolink(''.join(sc['parts']), TERM_NAMES, used), lruby), duals)
         for m in re.finditer(r'data-t="([^"]+)"', htm): ctx.terms.add(H.unescape(m.group(1)))
         if not htm and not sc['stage']: continue
         d = {'html': htm}
@@ -434,18 +582,105 @@ def term_names():
                 if ':' in ln: k, v = ln.split(':', 1); meta[k.strip()] = v.strip()
             alias = [a.strip() for a in meta.get('alias', '').split(',') if a.strip()]
             names.update(alias)
-            # furigana on first occurrence for East Asian kanji terms
-            if EA_REGION.search(meta.get('region', '')) or meta.get('ruby'):
-                y = hira(re.split(r'[（(]', meta.get('yomi', ''))[0].strip())
-                if y and re.search(KANJI, head) and not re.search(r'[（(]', head):
-                    RUBY[head] = y
-                for it in meta.get('ruby', '').split(','):
-                    if '=' in it:
-                        k, v = it.split('=', 1)
-                        if k.strip() and v.strip(): RUBY[k.strip()] = hira(v.strip())
+    for fn in ('ruby.tsv', 'ruby_extra.tsv'):
+        fp = os.path.join(SRC, fn)
+        if not os.path.exists(fp): continue
+        for ln in open(fp, encoding='utf-8'):
+            if ln.startswith('#') or '\t' not in ln: continue
+            k, v = ln.rstrip('\n').split('\t', 1)
+            if len(k) >= 2 and v: RUBY[k] = v
     return {n for n in names if len(n) >= 2}
 
 KATA = re.compile(r'[\u30A0-\u30FF]')
+_RUBY_RE = {}
+def ruby_all(htm, rmap):
+    """put furigana on every plain-text occurrence of difficult words (outside tags, ruby, headings, links)"""
+    if not rmap: return htm
+    key = id(rmap)
+    if key not in _RUBY_RE or _RUBY_RE[key][0] is not rmap:
+        ws = sorted(rmap, key=len, reverse=True)
+        _RUBY_RE.clear(); _RUBY_RE[key] = (rmap, re.compile('|'.join(re.escape(w) for w in ws)))
+    rx = _RUBY_RE[key][1]
+    parts = re.split(r'(<[^>]+>)', htm)
+    stack = []; depth = 0
+    for i, seg in enumerate(parts):
+        if seg.startswith('<'):
+            m = re.match(r'<(/?)(\w+)', seg)
+            if not m: continue
+            close, tag = m.groups()
+            skip = tag in ('ruby', 'rt', 'h2', 'h3', 'summary', 'a', 'script', 'style') or bool(re.search(r'\blang="(?!ja)', seg))
+            if tag in ('br', 'img', 'input', 'hr', 'wbr', 'source'): continue
+            if not close: stack.append(skip); depth += skip
+            elif stack: depth -= stack.pop()
+            continue
+        if depth or not seg.strip(): continue
+        def rep(m):
+            w = m.group(0); a, b = m.start(), m.end()
+            # do not split a longer kanji compound (e.g. avoid ruby on 李賢 inside 李賢者)
+            return '<ruby>%s<rt>%s</rt></ruby>' % (w, rmap[w])
+        parts[i] = rx.sub(rep, seg)
+    return ''.join(parts)
+DUAL = {}
+def load_dual():
+    fp = os.path.join(SRC, 'ruby_dual.tsv')
+    if not os.path.exists(fp): return
+    for ln in open(fp, encoding='utf-8'):
+        if ln.startswith('#') or '\t' not in ln: continue
+        c = ln.rstrip('\n').split('\t')
+        if len(c) < 3: continue
+        DUAL[c[0]] = (c[1], c[2], set(x.strip() for x in (c[3] if len(c) > 3 else '').split(',') if x.strip()))
+_DUAL_RE = {}
+def dual_ruby(htm, duals):
+    """East Asian personal names: Japanese reading (inner ruby) + local reading (outer ruby)"""
+    if not duals: return htm
+    key = tuple(sorted(duals))
+    if key not in _DUAL_RE: _DUAL_RE[key] = re.compile('<ruby>(' + '|'.join(re.escape(k) for k in sorted(duals, key=len, reverse=True)) + ')<rt>[^<]*</rt></ruby>')
+    return _DUAL_RE[key].sub(lambda m: '<ruby class="dual"><ruby>%s<rt>%s</rt></ruby><rt>%s</rt></ruby>' % (m.group(1), duals[m.group(1)][0], duals[m.group(1)][1]), htm)
+
+_TOK = None
+SUPERS = {}
+def build_supers(names):
+    by = sorted(names, key=len)
+    for n in by:
+        s = [m for m in names if len(m) > len(n) and n in m]
+        if s: SUPERS[n] = s
+_KJ = re.compile(KANJI)
+SUF_OK = {'徒', '教徒', '人', '派', '者', '的', '化', '系', '語', '軍', '朝', '党', '側'}
+PRE_OK = {'第', '新', '旧', '前', '後', '元', '東', '西', '南', '北'}
+def word_ok(seg, j, n):
+    """reject a match that cuts through a word (大都 in 大都市, 統領 in 大統領, 民会 in 国民会議 ...)"""
+    global _TOK
+    before = seg[j - 1] if j > 0 else ''
+    after = seg[j + len(n)] if j + len(n) < len(seg) else ''
+    kb = bool(_KJ.match(n[0])) and bool(before) and bool(_KJ.match(before))
+    ka = bool(_KJ.match(n[-1])) and bool(after) and bool(_KJ.match(after))
+    # inside a longer glossary term (キリスト in キリスト教, イスラーム in イスラーム教 ...)
+    for m in SUPERS.get(n, ()):
+        k = m.find(n)
+        while k >= 0:
+            if j - k >= 0 and seg[j - k:j - k + len(m)] == m: return False
+            k = m.find(n, k + 1)
+    # Latin abbreviations: EC in ECB, IS in CIS
+    if re.match(r'[A-Za-z]', n[0]) and before and re.match(r'[A-Za-z0-9]', before): return False
+    if re.match(r'[A-Za-z]', n[-1]) and after and re.match(r'[A-Za-z0-9]', after): return False
+    if n == '大学' and (after == '者' or (before and (KATA.match(before) or _KJ.match(before)))): return False
+    if not (kb or ka): return True
+    if _TOK is None:
+        try:
+            from janome.tokenizer import Tokenizer
+            _TOK = Tokenizer()
+        except Exception:
+            _TOK = False
+    if not _TOK: return True
+    a0 = max(0, j - 12); win = seg[a0:j + len(n) + 12]; a = j - a0; b = a + len(n)
+    pos = 0; spans = []
+    for w in _TOK.tokenize(win):
+        spans.append((pos, pos + len(w.surface))); pos += len(w.surface)
+    for s, e in spans:
+        if s < a < e and win[s:a] not in PRE_OK: return False   # starts inside a word
+        if s < b < e and win[b:e] not in SUF_OK: return False   # ends inside a word
+    return True
+
 def autolink(htm, names, used):
     """link the first plain-text occurrence of each known term (outside tags, links, headings)"""
     parts = re.split(r'(<[^>]+>)', htm)
@@ -474,6 +709,14 @@ def autolink(htm, names, used):
                 if KATA.match(n[0]) and KATA.match(before or ' '): j = seg.find(n, j + 1); continue
                 if KATA.match(n[-1]) and KATA.match(after or ' '): j = seg.find(n, j + 1); continue
                 break
+            while j >= 0 and not word_ok(seg, j, n):
+                j = seg.find(n, j + 1)
+                while j >= 0:
+                    before = seg[j - 1] if j > 0 else ''
+                    after = seg[j + len(n)] if j + len(n) < len(seg) else ''
+                    if KATA.match(n[0]) and KATA.match(before or ' '): j = seg.find(n, j + 1); continue
+                    if KATA.match(n[-1]) and KATA.match(after or ' '): j = seg.find(n, j + 1); continue
+                    break
             while j >= 0:
                 # inside a book title 『…』: link only when the whole title is the term
                 o = seg.rfind('『', 0, j); c = seg.rfind('』', 0, j)
@@ -493,6 +736,9 @@ def main():
     os.makedirs(os.path.join(OUT, 'lessons'), exist_ok=True)
     global TERM_NAMES
     TERM_NAMES = term_names()
+    load_titles()
+    load_dual()
+    build_supers(TERM_NAMES)
     if os.path.exists(os.path.join(SRC, 'events_base.json')):
         import subprocess, sys as _sys
         subprocess.run([_sys.executable, '-I', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'merge_events.py')], check=False)

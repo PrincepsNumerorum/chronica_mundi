@@ -149,6 +149,7 @@
     if (s.ruby === false) root.setAttribute('data-ruby', 'off'); else root.removeAttribute('data-ruby');
     if (s.motion === 'reduced') root.setAttribute('data-motion', 'reduced'); else root.removeAttribute('data-motion');
     if (s.imp === false) root.setAttribute('data-imp', 'off'); else root.removeAttribute('data-imp');
+    if (s.blur === false) root.setAttribute('data-blur', 'off'); else root.removeAttribute('data-blur');
     CM._tv = null;
     document.dispatchEvent(new CustomEvent('cm:theme'));
   }
@@ -163,11 +164,12 @@
     $('set-ruby').checked = s.ruby !== false;
     $('set-motion').checked = s.motion === 'reduced';
     $('set-imp').checked = s.imp !== false;
+    $('set-blur').checked = s.blur !== false;
     const save = () => {
-      const n = { theme: $('set-theme').value, font: $('set-font').value, size: $('set-size').value, ruby: $('set-ruby').checked, imp: $('set-imp').checked, motion: $('set-motion').checked ? 'reduced' : 'auto' };
+      const n = { theme: $('set-theme').value, font: $('set-font').value, size: $('set-size').value, ruby: $('set-ruby').checked, imp: $('set-imp').checked, blur: $('set-blur').checked, motion: $('set-motion').checked ? 'reduced' : 'auto' };
       CM.storage.set('settings', n); applySettings(n);
     };
-    ['set-theme', 'set-font', 'set-size', 'set-ruby', 'set-imp', 'set-motion'].forEach(id => $(id).addEventListener('change', save));
+    ['set-theme', 'set-font', 'set-size', 'set-ruby', 'set-imp', 'set-blur', 'set-motion'].forEach(id => $(id).addEventListener('change', save));
     $('settingsbtn').addEventListener('click', () => { pop.hidden = !pop.hidden; });
     $('settingsclose').addEventListener('click', () => { pop.hidden = true; });
     if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => document.dispatchEvent(new CustomEvent('cm:theme')));
@@ -233,6 +235,38 @@
       a.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(e); });
     });
     if (CM.initWidgets) CM.initWidgets(root);
+    root.querySelectorAll('.nsfw .cwbtn').forEach(b => {
+      if (b._b) return; b._b = 1;
+      b.addEventListener('click', (e) => { e.preventDefault(); b.closest('.nsfw').classList.add('shown'); });
+    });
+    root.querySelectorAll('.nsfw .cwhide').forEach(b => {
+      if (b._b) return; b._b = 1;
+      b.addEventListener('click', (e) => { e.preventDefault(); b.closest('.nsfw').classList.remove('shown'); });
+    });
+    root.querySelectorAll('.ytf').forEach(f => {
+      if (f._b) return; f._b = 1;
+      f.addEventListener('click', () => {
+        const id = f.dataset.yt, st = f.dataset.start;
+        const watch = 'https://www.youtube.com/watch?v=' + encodeURIComponent(id) + (st ? '&t=' + encodeURIComponent(st) + 's' : '');
+        if (!/^https?:$/.test(location.protocol)) {
+          // a page opened from a local file sends no Referer, which YouTube rejects (error 153): open it on YouTube instead
+          window.open(watch, '_blank', 'noopener');
+          if (!f.querySelector('.ytnote')) { const n = document.createElement('div'); n.className = 'ytnote'; n.textContent = 'ファイルを直接開いているため、YouTubeの仕様によりここでは再生できません。YouTubeのページで開きました（サイトをサーバーに置くと、ここで再生できます）。'; f.appendChild(n); }
+          return;
+        }
+        const ifr = document.createElement('iframe');
+        ifr.className = 'yt';
+        ifr.src = 'https://www.youtube.com/embed/' + encodeURIComponent(id) + '?autoplay=1&rel=0' + (st ? '&start=' + encodeURIComponent(st) : '');
+        ifr.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+        ifr.referrerPolicy = 'strict-origin-when-cross-origin'; ifr.allowFullscreen = true; ifr.title = (f.querySelector('img') || {}).alt || 'YouTube';
+        f.replaceWith(ifr);
+      });
+    });
+    root.querySelectorAll('figure.media video, figure.media audio').forEach(m => {
+      if (m._b) return; m._b = 1;
+      const srcs = m.querySelectorAll('source'), last = srcs[srcs.length - 1];
+      if (last) last.addEventListener('error', () => m.closest('figure').classList.add('broken'));
+    });
     root.querySelectorAll('figure.img img').forEach(img => {
       if (img._b) return; img._b = 1;
       const fail = () => img.closest('figure').classList.add('broken');

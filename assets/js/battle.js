@@ -116,15 +116,31 @@
       const P = this.pal(), d = this.d, v = d.view;
       const g = S('g', { class: 'terrain' }, this.svg);
       S('rect', { x: v[0] - 2000, y: v[1] - 2000, width: v[2] + 4000, height: v[3] + 4000, fill: d.bg === 'sea' ? P.sea : P.land }, g);
+      // with real map tiles underneath, the schematic area fills would hide the map: draw only outlines/lines
+      const tiles = !!(d._geo && TILES[CM.storage.get('battleTiles', 'topo')]);
       if (d._geo) { this.tileLayer = S('g', { class: 'tiles' }, g); this.tileKeys = {}; requestAnimationFrame(() => this.updateTiles()); }
       const labels = [];
+      // coastline stroke only on edges that are not on the edge of the drawing (avoids a boxed look)
+      const pad = Math.max(v[2], v[3]) * 0.004;
+      const onFrame = (p) => p[0] <= v[0] + pad || p[0] >= v[0] + v[2] - pad || p[1] <= v[1] + pad || p[1] >= v[1] + v[3] - pad;
+      const coastD = (pts) => { let s = ''; for (let k = 0; k < pts.length; k++) { const a = pts[k], b = pts[(k + 1) % pts.length]; const off = (onFrame(a) && onFrame(b)) || (Math.abs(a[0] - b[0]) < 1e-6 && (a[0] < v[0] + pad * 3 || a[0] > v[0] + v[2] - pad * 3)) || (Math.abs(a[1] - b[1]) < 1e-6 && (a[1] < v[1] + pad * 3 || a[1] > v[1] + v[3] - pad * 3)); if (!off) s += 'M' + a[0] + ',' + a[1] + 'L' + b[0] + ',' + b[1]; } return s; };
+      const soft = 'blur-' + d.id;
+      const flt = S('filter', { id: soft, x: '-5%', y: '-5%', width: '110%', height: '110%' }, this.svg.querySelector('defs'));
+      S('feGaussianBlur', { stdDeviation: Math.max(v[2], v[3]) * 0.0025 }, flt);
       (d.terrain || []).forEach(t => {
         const pts = t.pts;
+        if (tiles && ['land', 'sea', 'lake', 'river', 'hill', 'forest', 'marsh', 'field', 'island'].includes(t.t)) { if (t.label) labels.push(t); return; }
         switch (t.t) {
-          case 'land': S('path', { d: polyD(pts, true), fill: P.land, stroke: P.seaLine, 'stroke-width': 1.2 }, g); break;
-          case 'sea': case 'lake': S('path', { d: (t.smooth ? smoothPath(pts) + 'Z' : polyD(pts, true)), fill: P.sea, 'fill-opacity': t.alpha || 1, stroke: P.seaLine, 'stroke-width': 1, 'stroke-dasharray': t.dash ? '6 4' : 'none' }, g); break;
+          case 'land': S('path', { d: polyD(pts, true), fill: P.land, stroke: 'none' }, g); S('path', { d: coastD(pts), fill: 'none', stroke: P.seaLine, 'stroke-width': 1.1, 'stroke-opacity': .7 }, g); break;
+          case 'sea': case 'lake': {
+            const dd = t.smooth ? smoothPath(pts) + 'Z' : polyD(pts, true);
+            S('path', { d: dd, fill: P.sea, 'fill-opacity': t.alpha || 1, stroke: 'none' }, g);
+            if (!t.smooth) S('path', { d: coastD(pts), fill: 'none', stroke: P.seaLine, 'stroke-width': 1, 'stroke-opacity': .55, 'stroke-dasharray': t.dash ? '6 4' : 'none' }, g);
+            else S('path', { d: dd, fill: 'none', stroke: P.seaLine, 'stroke-width': 1, 'stroke-opacity': .55 }, g);
+            break;
+          }
           case 'river':
-            S('path', { d: smoothPath(pts), fill: 'none', stroke: P.seaLine, 'stroke-width': (t.w || 10) + 2.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, g);
+            S('path', { d: smoothPath(pts), fill: 'none', stroke: P.sea, 'stroke-width': (t.w || 10) + 3, 'stroke-opacity': .45, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', filter: 'url(#' + soft + ')' }, g);
             S('path', { d: smoothPath(pts), fill: 'none', stroke: P.sea, 'stroke-width': t.w || 10, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, g); break;
           case 'hill':
             S('path', { d: smoothPath(pts.concat([pts[0]])) + 'Z', fill: P.hill, 'fill-opacity': .75, stroke: P.hillLine, 'stroke-width': 1.2 }, g);
@@ -140,7 +156,7 @@
           case 'town':
             for (let k = 0; k < 4; k++) S('rect', { x: t.x - 9 + (k % 2) * 10, y: t.y - 9 + Math.floor(k / 2) * 10, width: 7, height: 7, fill: P.town }, g);
             break;
-          case 'island': S('path', { d: smoothPath(pts.concat([pts[0]])) + 'Z', fill: P.land, stroke: P.seaLine, 'stroke-width': 1.2 }, g); break;
+          case 'island': S('path', { d: smoothPath(pts.concat([pts[0]])) + 'Z', fill: P.land, stroke: P.seaLine, 'stroke-width': 1, 'stroke-opacity': .6 }, g); break;
           case 'label': break;
           default: break;
         }
@@ -177,6 +193,10 @@
           S('circle', { r: w / 2, fill: col, 'fill-opacity': .18, stroke: col, 'stroke-width': 2, 'stroke-dasharray': '4 3' }, g);
         } else {
           S('rect', { x: -w / 2, y: -h / 2, width: w, height: h, rx: 2, fill: col, 'fill-opacity': .88, stroke: CM.isDark() ? '#0e1116' : '#fff', 'stroke-width': 1.2 }, g);
+          // front edge: thick bar + notch, so turns and about-faces are visible
+          const fr = Math.min(7, Math.max(3.2, h * 0.32));
+          S('path', { d: 'M' + (-w / 2 + 1) + ',' + (-h / 2) + 'H' + (w / 2 - 1), stroke: CM.isDark() ? '#f2efe6' : '#1b2130', 'stroke-width': 2.2, 'stroke-linecap': 'round', opacity: .85 }, g);
+          S('path', { d: 'M' + (-fr) + ',' + (-h / 2 - 0.5) + 'L0,' + (-h / 2 - fr * 1.25) + 'L' + fr + ',' + (-h / 2 - 0.5) + 'Z', fill: col, stroke: CM.isDark() ? '#0e1116' : '#fff', 'stroke-width': .9 }, g);
           const sw = { stroke: '#fff', 'stroke-width': 1.4, fill: 'none', opacity: .9 };
           const bx = Math.min(w, h * 1.6) / 2 - 2, by = h / 2 - 3;
           if (u.t === 'inf') S('path', Object.assign({ d: 'M' + (-bx) + ',' + (-by) + 'L' + bx + ',' + by + 'M' + (-bx) + ',' + by + 'L' + bx + ',' + (-by) }, sw), g);
@@ -188,9 +208,11 @@
           else if (u.t === 'chariot') S('circle', Object.assign({ r: Math.min(h / 3, 5) }, sw), g);
           else if (u.t === 'tank') S('rect', Object.assign({ x: -bx, y: -by / 1.6, width: 2 * bx, height: by * 1.2, rx: by / 1.2 }, sw), g);
         }
+        const xw = Math.max(w, h) * 0.42;
+        const cross = S('path', { d: 'M' + (-xw) + ',' + (-xw * 0.55) + 'L' + xw + ',' + (xw * 0.55) + 'M' + xw + ',' + (-xw * 0.55) + 'L' + (-xw) + ',' + (xw * 0.55), stroke: CM.isDark() ? '#f2efe6' : '#1b2130', 'stroke-width': 2.2, 'stroke-linecap': 'round', opacity: 0 }, g);
         const lab = this.text(this.labelLayer || this.unitLayer, u.ja || '', 0, 0, u.fs || 15, col, false);
         lab.style.pointerEvents = 'none';
-        this.uEls[u.id] = { g, lab, u };
+        this.uEls[u.id] = { g, lab, u, cross, rotates: !(u.t === 'camp' || u.t === 'circle') };
       });
     }
     drawFurniture() {
@@ -255,30 +277,110 @@
         if (f.label) this.text(this.fxLayer, f.label, f.x, f.y - (f.r || 12) - 10, 12, P.ink, false);
       });
       (ph.marks || []).forEach(m => this.text(this.fxLayer, m.t, m.x, m.y, m.size || 15, m.c ? sideCol(m.c, this.d.sides) : P.ink, !!m.italic));
-      // tween units
-      const t0 = performance.now(), dur = (instant || CM.reducedMotion()) ? 0 : 1200;
+      // tween units: turn toward the direction of travel, move (along the phase's arrow when one matches), then turn to face the enemy
+      const reduce = instant || CM.reducedMotion();
       const ids = Object.keys(this.uEls);
+      const V = this.d.view, R0 = Math.max(V[2], V[3]);
+      const plans = {};
+      const alive = (s) => s && s[3] > 0.32;
+      const enemyDir = (id, pos) => {
+        const me = this.uEls[id].u.s; let best = null, bd = Infinity;
+        ids.forEach(j => { const o = this.uEls[j]; const q = to[j]; if (j === id || !alive(q) || o.u.s === me || o.u.t === 'ships') return; const dd = Math.hypot(q[0] - pos[0], q[1] - pos[1]); if (dd < bd) { bd = dd; best = q; } });
+        return best && bd < R0 * 0.8 ? [best[0] - pos[0], best[1] - pos[1]] : null;
+      };
+      const upRot = (dx, dy) => Math.atan2(dx, -dy) * 180 / Math.PI;   // rotation that points the unit's front (up) along (dx,dy)
+      const nearRot = (r, ref) => ref + angleDiff(ref, r);
+      ids.forEach(id => {
+        const el = this.uEls[id], b = to[id]; if (!b) return;
+        const a = from[id];
+        const ships = el.u.t === 'ships';
+        // final heading: rectangles are symmetric, so pick r or r+180 so that the front faces the nearest enemy
+        let fin = b[2] || 0;
+        if (el.rotates && !ships) {
+          const ed = enemyDir(id, b);
+          if (ed) { const up = [Math.sin(fin * Math.PI / 180), -Math.cos(fin * Math.PI / 180)]; if (up[0] * ed[0] + up[1] * ed[1] < 0) fin += 180; }
+        }
+        if (!a) { plans[id] = { a: null, b, fin }; return; }
+        fin = nearRot(fin, a[2]);
+        const dist = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        const size = Math.max(el.u.w || 40, el.u.h || 16);
+        let path = null;
+        if (dist > Math.max(size * 0.5, R0 * 0.012)) {
+          // follow a same-side arrow whose ends match this move
+          const tol = Math.max(size * 1.2, R0 * 0.08);
+          let bestA = null, bs = Infinity;
+          (ph.arrows || []).forEach(ar => {
+            if (ar.s !== el.u.s || !ar.pts || ar.pts.length < 2) return;
+            const p0 = ar.pts[0], p1 = ar.pts[ar.pts.length - 1];
+            const s1 = Math.hypot(p0[0] - a[0], p0[1] - a[1]), s2 = Math.hypot(p1[0] - b[0], p1[1] - b[1]);
+            if (s1 < tol && s2 < tol && s1 + s2 < bs) { bs = s1 + s2; bestA = ar; }
+          });
+          let pts = bestA ? [[a[0], a[1]]].concat(bestA.pts.slice(1, -1).map(p => [p[0], p[1]])).concat([[b[0], b[1]]]) : [[a[0], a[1]], [b[0], b[1]]];
+          if (pts.length > 2) pts = CM.roundPts(pts, null, 12).pts;
+          const cum = [0]; for (let k = 1; k < pts.length; k++) cum.push(cum[k - 1] + Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]));
+          path = { pts, cum, L: cum[cum.length - 1] };
+          const d0 = [pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]];
+          path.h0 = ships ? Math.atan2(d0[1], d0[0]) * 180 / Math.PI : upRot(d0[0], d0[1]);
+          path.h0 = nearRot(path.h0, a[2]);
+        }
+        plans[id] = { a, b, fin, path, turns: el.rotates };
+      });
+      const moving = Object.values(plans).some(p => p.path);
+      const t0 = performance.now(), dur = reduce ? 0 : (moving ? 2600 : 1300);
+      const at = (path, u) => {
+        const s = u * path.L; let k = 1; while (k < path.cum.length - 1 && path.cum[k] < s) k++;
+        const seg = path.cum[k] - path.cum[k - 1] || 1, f = (s - path.cum[k - 1]) / seg, p0 = path.pts[k - 1], p1 = path.pts[k];
+        return [p0[0] + (p1[0] - p0[0]) * f, p0[1] + (p1[1] - p0[1]) * f, p1[0] - p0[0], p1[1] - p0[1]];
+      };
+      const smooth = (x) => x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x);
       const step = (now) => {
         if (this.dead) return;
-        const t = dur ? Math.min(1, (now - t0) / dur) : 1, e = ease(t);
+        const t = dur ? Math.min(1, (now - t0) / dur) : 1;
+        const cur = {};
         ids.forEach(id => {
-          const el = this.uEls[id], a = from[id], b = to[id];
-          if (!b) { el.g.style.display = 'none'; el.lab.style.display = 'none'; return; }
+          const el = this.uEls[id], P2 = plans[id];
+          if (!P2) { el.g.style.display = 'none'; el.lab.style.display = 'none'; return; }
           el.g.style.display = ''; el.lab.style.display = '';
-          const s = a ? [a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e, a[2] + angleDiff(a[2], b[2]) * e, a[3] + (b[3] - a[3]) * e, a[4] + (b[4] - a[4]) * e] : [b[0], b[1], b[2], b[3] * e, b[4]];
+          const { a, b } = P2; let s;
+          if (!a) s = [b[0], b[1], P2.fin, b[3] * smooth(t / 0.6), b[4]];
+          else if (P2.path && P2.turns) {
+            // 0-0.18: turn to the march heading / 0.18-0.82: march / 0.82-1: turn to the final facing
+            const ship = el.u.t === 'ships';
+            let x, y, r;
+            if (t < 0.18) { const e = smooth(t / 0.18); x = a[0]; y = a[1]; r = a[2] + angleDiff(a[2], P2.path.h0) * e; }
+            else if (t < 0.82) {
+              const u = ease((t - 0.18) / 0.64), q = at(P2.path, u);
+              x = q[0]; y = q[1];
+              const hd = ship ? Math.atan2(q[3], q[2]) * 180 / Math.PI : upRot(q[2], q[3]);
+              r = nearRot(hd, P2.path.h0);
+              P2.lastR = r;
+            } else { const e = smooth((t - 0.82) / 0.18); x = b[0]; y = b[1]; const r0 = P2.lastR != null ? P2.lastR : P2.path.h0; r = r0 + angleDiff(r0, P2.fin) * e; }
+            s = [x, y, r, a[3] + (b[3] - a[3]) * smooth(t), a[4] + (b[4] - a[4]) * smooth(t)];
+          } else if (P2.path) {
+            const q = at(P2.path, ease(t));
+            s = [q[0], q[1], P2.fin, a[3] + (b[3] - a[3]) * smooth(t), a[4] + (b[4] - a[4]) * smooth(t)];
+          } else {
+            const e = ease(t);
+            s = [a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e, a[2] + angleDiff(a[2], P2.fin) * e, a[3] + (b[3] - a[3]) * smooth(t), a[4] + (b[4] - a[4]) * e];
+          }
           el.g.setAttribute('transform', this.unitTransform(s));
-          el.g.setAttribute('opacity', s[3]);
-          el.g.style.filter = b[5] === 'rout' ? 'grayscale(.6)' : '';
-          const ly = b[7] != null ? b[7] : -((el.u.h || 16) / 2 + 10) - (el.u.t === 'ships' ? 2 : 0);
+          // destroyed / routed units fade and turn grey; a cross marks a unit that is all but wiped out
+          const op = Math.max(0, s[3]);
+          el.g.setAttribute('opacity', op < 0.02 ? 0 : (op < 0.55 ? 0.25 + op * 0.55 : op));
+          const grey = b[5] === 'rout' ? 0.7 : CM.clamp((0.6 - op) / 0.35, 0, 1) * 0.85;
+          el.g.style.filter = grey > 0.02 ? 'grayscale(' + grey.toFixed(2) + ')' : '';
+          if (el.cross) el.cross.setAttribute('opacity', op > 0.02 && op <= 0.35 ? CM.clamp((0.4 - op) / 0.15, 0, 1) * 0.8 : 0);
+          const ly = b[7] != null ? b[7] : -((el.u.h || 16) / 2 + 12) - (el.u.t === 'ships' ? 2 : 0);
           const lx = b[6] != null ? b[6] : (el.u.t === 'ships' ? -((el.u.n || 1) - 1) * (el.u.gap || 16) / 2 * Math.cos((s[2] || 0) * Math.PI / 180) : 0);
           el.lab.setAttribute('x', s[0] + lx); el.lab.setAttribute('y', s[1] + ly);
-          el.lab.setAttribute('opacity', Math.min(1, s[3] + .15));
+          el.lab.setAttribute('opacity', op < 0.02 ? 0 : Math.min(1, Math.max(0.45, op) + .15));
+          cur[id] = [s[0], s[1], s[2], s[3], s[4], b[5], b[6], b[7]];
         });
-        this.cur = {};
-        ids.forEach(id => { if (to[id]) this.cur[id] = to[id]; });
-        if (t < 1) { this.cur = blend(from, to, e); requestAnimationFrame(step); } else { this.cur = to; this.declutter(); }
+        this.cur = cur;
+        if (t < 1) this._raf = requestAnimationFrame(step); else { this.cur = {}; ids.forEach(id => { if (plans[id]) this.cur[id] = [to[id][0], to[id][1], plans[id].fin, to[id][3], to[id][4], to[id][5], to[id][6], to[id][7]]; }); this.declutter(); }
       };
-      requestAnimationFrame(step);
+      if (this._raf) cancelAnimationFrame(this._raf);
+      this._raf = requestAnimationFrame(step);
       // focus / viewBox
       const vb = ph.focus || this.d.view;
       this.animateViewBox(vb, instant ? 0 : 1000);
@@ -333,7 +435,7 @@
       Object.keys(this.tileKeys).forEach(k => { if (!want[k]) { const im = this.tileKeys[k]; if (+im.dataset.z !== tz || Object.keys(this.tileKeys).length > 160) { im.remove(); delete this.tileKeys[k]; } } });
       if (this.attrEl) this.attrEl.textContent = src.attr;
     }
-    setTiles(kind) { CM.storage.set('battleTiles', kind); if (this.tileLayer) { this.tileLayer.innerHTML = ''; this.tileKeys = {}; } this.updateTiles(); this.syncTileBtns(); }
+    setTiles(kind) { CM.storage.set('battleTiles', kind); this._theme(); this.syncTileBtns(); }
     syncTileBtns() { if (this.tileBtns) this.tileBtns.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === CM.storage.get('battleTiles', 'topo'))); }
     toggleAuto() { if (this.auto) this.stopAuto(); else this.startAuto(); }
     startAuto() {
