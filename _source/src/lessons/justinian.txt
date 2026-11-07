@@ -111,6 +111,8 @@ question: 「ローマ帝国の再興」を夢見た皇帝は、何を成し遂�
 
 @battle taginae phase=2
 
+こうして、ユスティニアヌスの治世の末には、帝国は、北アフリカ、イタリア、イベリア半島の南部を取り戻し、地中海は再び「ローマの海」に近い姿となった。
+
 @map year=560 view=14,39,1.35 places=ju_cple,ju_carthage,ju_ravenna,ju_rome,ju_naples,ju_syracuse,ju_cartagena,ju_ctesiphon,ju_antioch,ju_taginae,ju_alexandria routes=ju_533,ju_535,ju_552 legend=a:ベリサリウスのアフリカ遠征（533年）;b:ベリサリウスのイタリア遠征（535年〜）;d:ナルセスのイタリア遠征（551〜552年） cap="ユスティニアヌスの再征服（6世紀半ば）"
 
 ### 再統一の代償
