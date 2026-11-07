@@ -3,7 +3,11 @@
   'use strict';
   CM.REGION_JA = { cn: '中国', kj: '朝鮮・日本', ia: '内陸アジア', sa: '南アジア', se: '東南アジア', wa: '西アジア・北アフリカ', eu: 'ヨーロッパ', ru: 'ロシア・東欧', af: 'アフリカ', am: '南北アメリカ', oc: 'オセアニア', gl: '世界・国際' };
   CM.REGION_KEYS = Object.keys(CM.REGION_JA);
-  const TOPIC_JA = { voice: '証言', trivia: 'こぼれ話', source: '史料', life: '暮らし', debate: '諸説あり', confuse: '混同注意', view: '視点を変える', now: 'いま', person: '人物', war: '戦術', term: '用語', myth: '俗説', works: '作品紹介', mech: 'しくみ' };
+  // topic families (see tools/build.py TOPIC_FAM)
+  const TOPIC_FAMS = [['src', '史料', '当時の人びとが残した記録・証言・遺物'], ['deep', '深掘り', '人物・暮らし・しくみ・戦術をくわしく'], ['think', '考える', '諸説・俗説の検証・別の視点'], ['confuse', '混同注意', '取り違えやすい用語や出来事'], ['now', 'いま', '現在まで続く問題'], ['works', '作品', 'その時代を描いた小説・映画・美術'], ['music', '音楽', '時代を映した歌と曲を、録音で聴く'], ['side', 'こぼれ話', '教科書では触れない、気になる場面']];
+  const TOPIC_KIND = { source: ['src', '記録'], voice: ['src', '証言'], relic: ['src', '遺物'], person: ['deep', '人物'], life: ['deep', '暮らし'], mech: ['deep', 'しくみ'], war: ['deep', '戦術'], term: ['deep', 'ことば'], debate: ['think', '諸説あり'], myth: ['think', '俗説を検証'], view: ['think', '別の視点'], confuse: ['confuse', ''], now: ['now', ''], works: ['works', ''], music: ['music', ''], trivia: ['side', ''] };
+  const FAM_JA = Object.fromEntries(TOPIC_FAMS.map(f => [f[0], f[1]]));
+  const TOPIC_JA = Object.fromEntries(Object.entries(TOPIC_KIND).map(([k, v]) => [k, FAM_JA[v[0]] + (v[1] ? '｜' + v[1] : '')]));
   CM.TOPIC_JA = TOPIC_JA;
   const KANA_LABEL = { a: 'あ', ka: 'か', sa: 'さ', ta: 'た', na: 'な', ha: 'は', ma: 'ま', ya: 'や', ra: 'ら', wa: 'わ', etc: '他' };
 
@@ -49,16 +53,19 @@
   CM.pages.topics = {
     render(view) {
       const list = CM.topics || [];
-      const kinds = Object.keys(TOPIC_JA).filter(k => list.some(t => t.k === k));
-      view.innerHTML = '<div class="wrap"><div class="page-head"><h1>トピックス</h1><p>講義の途中に差し込んだこぼれ話・史料・暮らしの記録など ' + list.length + '件。押すと講義の該当箇所が開く。</p></div>' +
-        '<div class="filters"><select id="pk" aria-label="種類"><option value="">すべての種類</option>' + kinds.map(k => '<option value="' + k + '">' + TOPIC_JA[k] + '</option>').join('') + '</select><input id="pq" type="search" placeholder="キーワードで絞り込む" aria-label="キーワードで絞り込む"></div><div class="cards" id="plist"></div></div>';
+      const famOf = (t) => t.f || (TOPIC_KIND[t.k] || ['side'])[0];
+      view.innerHTML = '<div class="wrap"><div class="page-head"><h1>トピックス</h1><p>講義の途中に差し込んだ囲み記事 ' + list.length + '件。読者が知りたいことに応じて、8つのグループに分けている。押すと講義の該当箇所が開く。</p></div>' +
+        '<div class="tfams">' + TOPIC_FAMS.map(f => '<button type="button" class="tfam tf-' + f[0] + '" data-f="' + f[0] + '"><b>' + f[1] + '</b><span>' + f[2] + '</span><em>' + list.filter(t => famOf(t) === f[0]).length + '件</em></button>').join('') + '</div>' +
+        '<div class="filters"><select id="pk" aria-label="種類"><option value="">すべての種類</option>' + TOPIC_FAMS.map(f => '<optgroup label="' + f[1] + '"><option value="f:' + f[0] + '">' + f[1] + '（すべて）</option>' + Object.keys(TOPIC_KIND).filter(k => TOPIC_KIND[k][0] === f[0] && TOPIC_KIND[k][1] && list.some(t => t.k === k)).map(k => '<option value="' + k + '">' + TOPIC_JA[k] + '</option>').join('') + '</optgroup>').join('') + '</select><input id="pq" type="search" placeholder="キーワードで絞り込む" aria-label="キーワードで絞り込む"></div><div class="cards" id="plist"></div></div>';
       const draw = () => {
         const k = document.getElementById('pk').value, s = document.getElementById('pq').value.trim();
-        document.getElementById('plist').innerHTML = list.filter(t => (!k || t.k === k) && (!s || t.t.indexOf(s) >= 0 || t.x.indexOf(s) >= 0)).map(t => {
+        view.querySelectorAll('.tfam').forEach(b => b.classList.toggle('on', k === 'f:' + b.dataset.f));
+        document.getElementById('plist').innerHTML = list.filter(t => (!k || (k.startsWith('f:') ? famOf(t) === k.slice(2) : t.k === k)) && (!s || t.t.indexOf(s) >= 0 || t.x.indexOf(s) >= 0)).map(t => {
           const L = CM.lessonMeta(t.l);
-          return '<a class="card" href="#/lesson/' + t.l + '?topic=' + t.id + '"><div class="meta"><span class="chip">' + CM.esc(TOPIC_JA[t.k] || t.k) + '</span><span>' + CM.esc(L ? L.title : '') + '</span></div><h3>' + CM.esc(t.t) + '</h3><p>' + CM.esc(t.x) + '…</p></a>';
+          return '<a class="card" href="#/lesson/' + t.l + '?topic=' + t.id + '"><div class="meta"><span class="chip tchip tf-' + famOf(t) + '">' + CM.esc(TOPIC_JA[t.k] || t.k) + '</span><span>' + CM.esc(L ? L.title : '') + '</span></div><h3>' + CM.esc(t.t) + '</h3><p>' + CM.esc(t.x) + '…</p></a>';
         }).join('') || '<p class="muted">該当なし</p>';
       };
+      view.querySelectorAll('.tfam').forEach(b => b.addEventListener('click', () => { const sel = document.getElementById('pk'); sel.value = sel.value === 'f:' + b.dataset.f ? '' : 'f:' + b.dataset.f; draw(); }));
       document.getElementById('pk').addEventListener('change', draw);
       document.getElementById('pq').addEventListener('input', draw);
       draw();

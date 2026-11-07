@@ -102,6 +102,7 @@ def commons_search(f):
     return 'https://commons.wikimedia.org/w/index.php?search=' + quote(stem) + '&title=Special:MediaSearch&type=image'
 
 MEDIA_LOG = []
+NSFW_SEEN = [False]
 COMMONS_FP = 'https://commons.wikimedia.org/wiki/Special:FilePath/'
 CW_NOTE = ('<div class="cw-note"><b>閲覧注意</b>　この回には、遺体や飢餓、暴力の痕跡など、見る人によっては強い衝撃を受ける写真や映像が含まれている。'
            'これらにはぼかしをかけてあり、クリックすると表示される（画面右上の設定で、ぼかしを一括で外すこともできる）。'
@@ -122,6 +123,7 @@ def commons_audio_mp3(f):
     return 'https://upload.wikimedia.org/wikipedia/commons/transcoded/%s/%s/%s/%s.mp3' % (h[0], h[:2], q, q)
 
 def media_html(kind, a, ctx):
+    if a.get('nsfw'): NSFW_SEEN[0] = True
     """!image / !video / !audio  file="..." cap="..." [nsfw=1] [archive=ID] [warn="..."]"""
     from urllib.parse import quote
     cap = a.get('cap', '')
@@ -268,8 +270,25 @@ def render_paras(lines, ctx):
     flush()
     return ''.join(out)
 
-TOPIC_KINDS = {'voice', 'trivia', 'source', 'life', 'debate', 'confuse', 'view', 'now', 'person', 'war', 'term', 'myth', 'works', 'mech'}
-TOPIC_JA = {'voice': '証言', 'trivia': 'こぼれ話', 'source': '史料', 'life': '暮らし', 'debate': '諸説あり', 'confuse': '混同注意', 'view': '視点を変える', 'now': 'いま', 'person': '人物', 'war': '戦術', 'term': '用語', 'myth': '俗説', 'works': '作品紹介', 'mech': 'しくみ'}
+# topics are grouped by the question they answer for the reader:
+#   史料 = what people of the time left behind / 深掘り = a closer look / 考える = interpretation / 混同注意 = easily confused points
+#   いま = problems that continue today / 作品 = later novels, films and art about the age / 音楽 = songs and music of the age, with recordings / こぼれ話 = scenes the textbook skips
+TOPIC_FAM = {
+    'source': ('src', '史料', '記録'), 'voice': ('src', '史料', '証言'), 'relic': ('src', '史料', '遺物'),
+    'person': ('deep', '深掘り', '人物'), 'life': ('deep', '深掘り', '暮らし'), 'mech': ('deep', '深掘り', 'しくみ'),
+    'war': ('deep', '深掘り', '戦術'), 'term': ('deep', '深掘り', 'ことば'),
+    'debate': ('think', '考える', '諸説あり'), 'myth': ('think', '考える', '俗説を検証'), 'view': ('think', '考える', '別の視点'),
+    'confuse': ('confuse', '混同注意', ''),
+    'now': ('now', 'いま', ''),
+    'works': ('works', '作品', ''),
+    'music': ('music', '音楽', ''),
+    'trivia': ('side', 'こぼれ話', ''),
+}
+TOPIC_KINDS = set(TOPIC_FAM)
+TOPIC_JA = {k: (v[1] + '｜' + v[2] if v[2] else v[1]) for k, v in TOPIC_FAM.items()}
+def topic_label(k):
+    f = TOPIC_FAM.get(k, ('side', k, ''))
+    return '<b>%s</b>%s' % (f[1], ('<i>%s</i>' % f[2]) if f[2] else '')
 
 def parse_front(text):
     m = re.match(r'^---\n(.*?)\n---\n', text, re.S)
@@ -290,7 +309,7 @@ def build_lesson(path, all_topics, search):
     lines = body.split('\n')
     scenes = [{'stage': None, 'parts': []}]
     cw_flag = [False]
-    MEDIA_LOG.clear()
+    MEDIA_LOG.clear(); NSFW_SEEN[0] = False
     toc = []; figures = {}; geo = {}; summary = []; quiz = []; sources = []
     i = 0; hcount = 0; tcount = 0; para = []
     def cur(): return scenes[-1]['parts']
@@ -317,9 +336,10 @@ def build_lesson(path, all_topics, search):
                 if tk not in TOPIC_KINDS: WARN.append('%s: unknown topic kind %s' % (lid, tk))
                 tcount += 1; tid = '%s-t%d' % (lid, tcount)
                 inner = render_paras(blk, ctx)
-                cur().append('<details class="topic topic-%s" id="%s"><summary><span class="tk">%s</span><span class="tt">%s</span></summary><div class="tb">%s</div></details>' % (tk, tid, TOPIC_JA.get(tk, tk), inline(title, ctx), inner))
+                fam = TOPIC_FAM.get(tk, ('side',))[0]
+                cur().append('<details class="topic topic-%s tf-%s" id="%s"><summary><span class="tk">%s</span><span class="tt">%s</span></summary><div class="tb">%s</div></details>' % (tk, fam, tid, topic_label(tk), inline(title, ctx), inner))
                 ptxt = plain(inner)
-                all_topics.append({'id': tid, 'k': tk, 'kj': TOPIC_JA.get(tk, tk), 't': plain(inline(title, ctx)), 'l': lid, 'x': ptxt[:90]})
+                all_topics.append({'id': tid, 'k': tk, 'f': fam, 'kj': TOPIC_JA.get(tk, tk), 't': plain(inline(title, ctx)), 'l': lid, 'x': ptxt[:90]})
                 search.append({'k': 'topic', 'id': tid, 'l': lid, 't': plain(inline(title, ctx)), 'x': ptxt})
             elif kind == 'figure':
                 fid, _, cap = arg.partition('|'); fid = fid.strip()
@@ -407,7 +427,7 @@ def build_lesson(path, all_topics, search):
             host = 'YouTube' if 'youtube' in u else ('Internet Archive' if 'archive.org' in u else 'Wikimedia Commons')
             items.append('<li><span class="mk">%s</span>%s（<a href="%s" target="_blank" rel="noopener">%s</a>）</li>' % (KJ.get(k, k), H.escape(c1), H.escape(u), host))
         sources.append({'k': 'm', 'h': '<b>掲載した図版・写真・映像・音声</b><ul class="mlist">' + ''.join(items) + '</ul>'})
-    if cw_flag[0]:
+    if cw_flag[0] or NSFW_SEEN[0]:
         scenes[0]['parts'].insert(0, CW_NOTE)
     out_scenes = []
     nl = meta.get('nolink', [])

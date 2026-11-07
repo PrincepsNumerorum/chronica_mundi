@@ -60,6 +60,35 @@
     destroy() { if (this.map) this.map.destroy(); if (this.battle) this.battle.destroy(); }
   }
 
+  // draggable divider between the text and the map; the text column width is remembered (as a fraction of the window)
+  function initSplit(root) {
+    const KEY = 'lessonSplit';
+    const bar = CM.h('div', { class: 'lsplit', role: 'separator', 'aria-orientation': 'vertical', 'aria-label': '本文と地図の幅を調整（ダブルクリックで元に戻す）', tabindex: '0', title: 'ドラッグで本文と地図の幅を調整（ダブルクリックで元に戻す）' }, '<span></span>');
+    root.appendChild(bar);
+    const apply = (f) => {
+      if (f == null || window.innerWidth <= 900) { root.style.gridTemplateColumns = ''; root.style.removeProperty('--lsplit'); }
+      else { f = CM.clamp(f, 0.28, 0.75); root.style.gridTemplateColumns = 'minmax(0,' + (f * 100).toFixed(2) + '%) minmax(0,1fr)'; }
+      const art = root.querySelector('.lesson-article');
+      bar.style.left = (art ? art.getBoundingClientRect().right - root.getBoundingClientRect().left : 0) + 'px';
+      window.dispatchEvent(new Event('resize'));
+    };
+    let f = +CM.storage.get(KEY, 0) || null;
+    apply(f);
+    const onMove = (e) => { const r = root.getBoundingClientRect(); f = (e.clientX - r.left) / r.width; apply(f); };
+    bar.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); bar.setPointerCapture(e.pointerId); document.body.classList.add('splitting');
+      const up = () => { bar.removeEventListener('pointermove', onMove); bar.removeEventListener('pointerup', up); bar.removeEventListener('pointercancel', up); document.body.classList.remove('splitting'); if (f) CM.storage.set(KEY, f.toFixed(3)); };
+      bar.addEventListener('pointermove', onMove); bar.addEventListener('pointerup', up); bar.addEventListener('pointercancel', up);
+    });
+    bar.addEventListener('dblclick', () => { f = null; CM.storage.set(KEY, ''); apply(null); });
+    bar.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return; e.preventDefault();
+      const r = root.getBoundingClientRect(), art = root.querySelector('.lesson-article');
+      f = (f || art.getBoundingClientRect().width / r.width) + (e.key === 'ArrowLeft' ? -0.03 : 0.03); apply(f); CM.storage.set(KEY, CM.clamp(f, 0.28, 0.75).toFixed(3));
+    });
+    const onResize = () => { const art = root.querySelector('.lesson-article'); if (!root.isConnected) { window.removeEventListener('resize', onResize); return; } if (window.innerWidth <= 900) root.style.gridTemplateColumns = ''; else if (f) root.style.gridTemplateColumns = 'minmax(0,' + (CM.clamp(f, 0.28, 0.75) * 100).toFixed(2) + '%) minmax(0,1fr)'; bar.style.left = (art ? art.getBoundingClientRect().right - root.getBoundingClientRect().left : 0) + 'px'; };
+    window.addEventListener('resize', onResize);
+  }
   function cueText(st) {
     if (st.type === 'map') return '地図：' + (st.caption || st.ylabel || CM.fmtYear(st.play ? st.play[1] : st.year));
     if (st.type === 'battle') return '戦況図：段階' + ((st.phase || 0) + 1);
@@ -130,6 +159,7 @@
       html += '</footer></article><aside class="lesson-stage" id="lstage" aria-label="地図と図版"></aside></div>';
       view.innerHTML = html;
       if (!L.scenes.some(sc => sc.stage)) view.querySelector('.lesson').classList.add('nostage');
+      else initSplit(view.querySelector('.lesson'));
       const art = document.getElementById('lart');
       CM.bindInline(art);
       if (L.quiz) renderQuiz(L, document.getElementById('lquiz'));

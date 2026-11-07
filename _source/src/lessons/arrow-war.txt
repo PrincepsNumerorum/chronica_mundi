@@ -124,12 +124,12 @@ question: アヘン戦争の後も続いた欧米の圧力は、アロー戦争�
 :::topic myth | 石の船
 北京の郊外の頤和園の池のほとりには、大理石でできた二階建ての船が浮かんでいる。この「｜石舫《せきほう》」は、清の衰退の象徴としてよく語られる。
 
+!image file="The Marble Boat, Summer Palace, Beijing (16669030141).jpg" cap="頤和園の石舫（北京）。"
+
 アロー戦争で焼かれた離宮の一つを、西太后は、1880年代の末から、自らの隠居所として再建した。それが頤和園である。その費用の一部に、北洋艦隊を強化するための海軍の予算が流用された、という話は有名である。新しい軍艦を買うはずのお金で、動かない石の船を飾ったのだ、と。
 
 ただし、実際にどれだけの金額が流用されたのかについては、さまざまな説がある【諸説】。しかし、1888年に北洋艦隊が完成した後、清が新しい軍艦をほとんど購入しなかったことは事実であった。その間に、日本は、着々と海軍を増強していた（→「日清戦争と朝鮮」の回）。
 :::
-
-!image file="The Marble Boat, Summer Palace, Beijing (16669030141).jpg" cap="頤和園の石舫（北京）。"
 
 @map year=1860 view=122,36,1.3 places=aw_canton,aw_hongkong,aw_kowloon,aw_shanghai,aw_hankou,aw_taku,aw_tianjin,aw_beijing,aw_rehe,aw_fuzhou,aw_aigun,aw_vladivostok,aw_khabarovsk routes=aw_allied,aw_flight legend=a:英仏連合軍の北京への進撃（1860年）;e:咸豊帝の熱河への避難（1860年） cap="アロー戦争と北京条約（1860年）"
 

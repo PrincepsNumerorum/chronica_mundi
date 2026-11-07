@@ -277,62 +277,32 @@
         if (f.label) this.text(this.fxLayer, f.label, f.x, f.y - (f.r || 12) - 10, 12, P.ink, false);
       });
       (ph.marks || []).forEach(m => this.text(this.fxLayer, m.t, m.x, m.y, m.size || 15, m.c ? sideCol(m.c, this.d.sides) : P.ink, !!m.italic));
-      // tween units: turn toward the direction of travel, move (along the phase's arrow when one matches), then turn to face the enemy
+      // tween units along their march path; headings are precomputed per phase (deterministic, see planHeadings)
       const reduce = instant || CM.reducedMotion();
       const ids = Object.keys(this.uEls);
-      const V = this.d.view, R0 = Math.max(V[2], V[3]);
+      if (!this.HD) this.planHeadings();
+      const HD = this.HD[i] || {};
       const plans = {};
-      const alive = (s) => s && s[3] > 0.32;
-      const enemyDir = (id, pos) => {
-        const me = this.uEls[id].u.s; let best = null, bd = Infinity;
-        ids.forEach(j => { const o = this.uEls[j]; const q = to[j]; if (j === id || !alive(q) || o.u.s === me || o.u.t === 'ships') return; const dd = Math.hypot(q[0] - pos[0], q[1] - pos[1]); if (dd < bd) { bd = dd; best = q; } });
-        return best && bd < R0 * 0.8 ? [best[0] - pos[0], best[1] - pos[1]] : null;
-      };
-      const upRot = (dx, dy) => Math.atan2(dx, -dy) * 180 / Math.PI;   // rotation that points the unit's front (up) along (dx,dy)
-      const nearRot = (r, ref) => ref + angleDiff(ref, r);
       ids.forEach(id => {
         const el = this.uEls[id], b = to[id]; if (!b) return;
         const a = from[id];
         const ships = el.u.t === 'ships';
-        // final heading: rectangles are symmetric, so pick r or r+180 so that the front faces the nearest enemy
-        let fin = b[2] || 0;
-        if (el.rotates && !ships) {
-          const ed = enemyDir(id, b);
-          if (ed) { const up = [Math.sin(fin * Math.PI / 180), -Math.cos(fin * Math.PI / 180)]; if (up[0] * ed[0] + up[1] * ed[1] < 0) fin += 180; }
-        }
-        if (!a) { plans[id] = { a: null, b, fin }; return; }
-        fin = nearRot(fin, a[2]);
-        const dist = Math.hypot(b[0] - a[0], b[1] - a[1]);
-        const size = Math.max(el.u.w || 40, el.u.h || 16);
-        let path = null;
-        if (dist > Math.max(size * 0.5, R0 * 0.012)) {
-          // follow a same-side arrow whose ends match this move
-          const tol = Math.max(size * 1.2, R0 * 0.08);
-          let bestA = null, bs = Infinity;
-          (ph.arrows || []).forEach(ar => {
-            if (ar.s !== el.u.s || !ar.pts || ar.pts.length < 2) return;
-            const p0 = ar.pts[0], p1 = ar.pts[ar.pts.length - 1];
-            const s1 = Math.hypot(p0[0] - a[0], p0[1] - a[1]), s2 = Math.hypot(p1[0] - b[0], p1[1] - b[1]);
-            if (s1 < tol && s2 < tol && s1 + s2 < bs) { bs = s1 + s2; bestA = ar; }
-          });
-          let pts = bestA ? [[a[0], a[1]]].concat(bestA.pts.slice(1, -1).map(p => [p[0], p[1]])).concat([[b[0], b[1]]]) : [[a[0], a[1]], [b[0], b[1]]];
-          if (pts.length > 2) pts = CM.roundPts(pts, null, 12).pts;
-          const cum = [0]; for (let k = 1; k < pts.length; k++) cum.push(cum[k - 1] + Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]));
-          path = { pts, cum, L: cum[cum.length - 1] };
-          const d0 = [pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]];
-          path.h0 = ships ? Math.atan2(d0[1], d0[0]) * 180 / Math.PI : upRot(d0[0], d0[1]);
-          path.h0 = nearRot(path.h0, a[2]);
-        }
+        const h = HD[id] || { fin: b[2] || 0 };
+        if (!a) { plans[id] = { a: null, b, fin: h.fin }; return; }
+        const fin = nearRot(h.fin, a[2]);
+        const path = this.pathFor(i, id, a, b);
+        if (path) path.h0 = nearRot(ships ? Math.atan2(path.pts[1][1] - path.pts[0][1], path.pts[1][0] - path.pts[0][0]) * 180 / Math.PI : upRot(path.pts[1][0] - path.pts[0][0], path.pts[1][1] - path.pts[0][1]), a[2]);
         plans[id] = { a, b, fin, path, turns: el.rotates };
       });
       const moving = Object.values(plans).some(p => p.path);
-      const t0 = performance.now(), dur = reduce ? 0 : (moving ? 2600 : 1300);
-      const at = (path, u) => {
-        const s = u * path.L; let k = 1; while (k < path.cum.length - 1 && path.cum[k] < s) k++;
+      const t0 = performance.now(), dur = reduce ? 0 : (moving ? 2800 : 1300);
+      const posAt = (path, s) => {
+        s = CM.clamp(s, 0, path.L); let k = 1; while (k < path.cum.length - 1 && path.cum[k] < s) k++;
         const seg = path.cum[k] - path.cum[k - 1] || 1, f = (s - path.cum[k - 1]) / seg, p0 = path.pts[k - 1], p1 = path.pts[k];
-        return [p0[0] + (p1[0] - p0[0]) * f, p0[1] + (p1[1] - p0[1]) * f, p1[0] - p0[0], p1[1] - p0[1]];
+        return [p0[0] + (p1[0] - p0[0]) * f, p0[1] + (p1[1] - p0[1]) * f];
       };
       const smooth = (x) => x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x);
+      const mixA = (r, to, w) => r + angleDiff(r, to) * w;
       const step = (now) => {
         if (this.dead) return;
         const t = dur ? Math.min(1, (now - t0) / dur) : 1;
@@ -343,22 +313,20 @@
           el.g.style.display = ''; el.lab.style.display = '';
           const { a, b } = P2; let s;
           if (!a) s = [b[0], b[1], P2.fin, b[3] * smooth(t / 0.6), b[4]];
-          else if (P2.path && P2.turns) {
-            // 0-0.18: turn to the march heading / 0.18-0.82: march / 0.82-1: turn to the final facing
-            const ship = el.u.t === 'ships';
-            let x, y, r;
-            if (t < 0.18) { const e = smooth(t / 0.18); x = a[0]; y = a[1]; r = a[2] + angleDiff(a[2], P2.path.h0) * e; }
-            else if (t < 0.82) {
-              const u = ease((t - 0.18) / 0.64), q = at(P2.path, u);
-              x = q[0]; y = q[1];
-              const hd = ship ? Math.atan2(q[3], q[2]) * 180 / Math.PI : upRot(q[2], q[3]);
-              r = nearRot(hd, P2.path.h0);
+          else if (P2.path) {
+            // move continuously; the facing eases from the old heading into the direction of travel, follows the path, then settles into the final facing
+            const ship = el.u.t === 'ships', L = P2.path.L;
+            const u = ease(CM.clamp((t - 0.06) / 0.86, 0, 1)), sNow = u * L;
+            const q = posAt(P2.path, sNow);
+            let r = P2.path.h0;
+            if (P2.turns || ship) {
+              const dl = Math.min(18, L * 0.08), q1 = posAt(P2.path, sNow - dl), q2 = posAt(P2.path, sNow + dl);
+              if (Math.hypot(q2[0] - q1[0], q2[1] - q1[1]) > 1e-6) r = nearRot(ship ? Math.atan2(q2[1] - q1[1], q2[0] - q1[0]) * 180 / Math.PI : upRot(q2[0] - q1[0], q2[1] - q1[1]), P2.lastR != null ? P2.lastR : P2.path.h0);
               P2.lastR = r;
-            } else { const e = smooth((t - 0.82) / 0.18); x = b[0]; y = b[1]; const r0 = P2.lastR != null ? P2.lastR : P2.path.h0; r = r0 + angleDiff(r0, P2.fin) * e; }
-            s = [x, y, r, a[3] + (b[3] - a[3]) * smooth(t), a[4] + (b[4] - a[4]) * smooth(t)];
-          } else if (P2.path) {
-            const q = at(P2.path, ease(t));
-            s = [q[0], q[1], P2.fin, a[3] + (b[3] - a[3]) * smooth(t), a[4] + (b[4] - a[4]) * smooth(t)];
+              r = mixA(r, a[2], 1 - smooth(t / 0.24));
+              r = mixA(r, P2.fin, smooth((t - 0.74) / 0.26));
+            } else r = P2.fin;
+            s = [q[0], q[1], r, a[3] + (b[3] - a[3]) * smooth(t), a[4] + (b[4] - a[4]) * smooth(t)];
           } else {
             const e = ease(t);
             s = [a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e, a[2] + angleDiff(a[2], P2.fin) * e, a[3] + (b[3] - a[3]) * smooth(t), a[4] + (b[4] - a[4]) * e];
@@ -384,6 +352,88 @@
       // focus / viewBox
       const vb = ph.focus || this.d.view;
       this.animateViewBox(vb, instant ? 0 : 1000);
+    }
+    // march path of unit id in phase k from state a to b: follows a same-side arrow whose ends match the move, else a straight line
+    pathFor(k, id, a, b) {
+      const el = this.uEls[id], ph = this.d.phases[k] || {};
+      const V = this.d.view, R0 = Math.max(V[2], V[3]);
+      const dist = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const size = Math.max(el.u.w || 40, el.u.h || 16);
+      if (dist <= Math.max(size * 0.5, R0 * 0.012)) return null;
+      const tol = Math.max(size * 1.2, R0 * 0.08);
+      let bestA = null, bs = Infinity;
+      (ph.arrows || []).forEach(ar => {
+        if (ar.s !== el.u.s || !ar.pts || ar.pts.length < 2) return;
+        const p0 = ar.pts[0], p1 = ar.pts[ar.pts.length - 1];
+        const s1 = Math.hypot(p0[0] - a[0], p0[1] - a[1]), s2 = Math.hypot(p1[0] - b[0], p1[1] - b[1]);
+        if (s1 < tol && s2 < tol && s1 + s2 < bs) { bs = s1 + s2; bestA = ar; }
+      });
+      let pts = bestA ? [[a[0], a[1]]].concat(bestA.pts.slice(1, -1).map(p => [p[0], p[1]])).concat([[b[0], b[1]]]) : [[a[0], a[1]], [b[0], b[1]]];
+      if (pts.length > 2) pts = CM.roundPts(pts, null, 12).pts;
+      const cum = [0]; for (let j = 1; j < pts.length; j++) cum.push(cum[j - 1] + Math.hypot(pts[j][0] - pts[j - 1][0], pts[j][1] - pts[j - 1][1]));
+      return { pts, cum, L: cum[cum.length - 1] };
+    }
+    // final heading of every unit at the end of every phase.
+    // explicit rotation in the data wins (turned 180° if its front would face away from the enemy);
+    // otherwise a unit that marched keeps its direction of travel, or turns to face the enemy if it ends in contact;
+    // a unit that stood still keeps its heading unless an enemy closes in from another direction.
+    planHeadings() {
+      const N = this.d.phases.length, V = this.d.view, R0 = Math.max(V[2], V[3]);
+      const ids = Object.keys(this.uEls);
+      const states = []; for (let k = 0; k < N; k++) states.push(this.stateFor(k));
+      const alive = (s) => s && s[3] > 0.32;
+      const enemyVec = (id, pos, st, range) => {
+        const me = this.uEls[id].u; let sx = 0, sy = 0, sw = 0, nd = Infinity;
+        ids.forEach(j => {
+          const o = this.uEls[j], q = st[j]; if (j === id || !alive(q) || o.u.s === me.s || o.u.t === 'ships' || o.u.t === 'camp') return;
+          const dx = q[0] - pos[0], dy = q[1] - pos[1], d = Math.hypot(dx, dy) || 1; if (d > range) return;
+          nd = Math.min(nd, d); const w = 1 / (d * d); sx += dx / d * w; sy += dy / d * w; sw += w;
+        });
+        return sw ? { v: [sx / sw, sy / sw], d: nd } : null;
+      };
+      const H = []; let prev = {};
+      for (let k = 0; k < N; k++) {
+        const st = states[k], ph = this.d.phases[k], out = {};
+        ids.forEach(id => {
+          const el = this.uEls[id], b = st[id]; if (!b) return;
+          const ships = el.u.t === 'ships', raw = (ph.u || {})[id];
+          const explicit = raw && raw[2] != null;
+          const a = k > 0 ? states[k - 1][id] : null;
+          const p = prev[id];
+          const path = a ? this.pathFor(k, id, a, b) : null;
+          let fin;
+          if (!el.rotates) fin = 0;
+          else if (explicit) {
+            fin = raw[2];
+            if (!ships) { const E = enemyVec(id, b, st, R0 * 0.8); if (E) { const up = [Math.sin(fin * Math.PI / 180), -Math.cos(fin * Math.PI / 180)]; if (up[0] * E.v[0] + up[1] * E.v[1] < 0) fin += 180; } }
+          } else if (ships) {
+            if (path) { const n = path.pts.length, d = [path.pts[n - 1][0] - path.pts[n - 2][0], path.pts[n - 1][1] - path.pts[n - 2][1]]; fin = Math.atan2(d[1], d[0]) * 180 / Math.PI; }
+            else if (p != null) fin = p;
+            else {
+              // first appearance: point along the first later move, if any
+              fin = b[2] || 0;
+              for (let j = k + 1; j < N; j++) { const q = states[j][id]; if (q && Math.hypot(q[0] - b[0], q[1] - b[1]) > 4) { fin = Math.atan2(q[1] - b[1], q[0] - b[0]) * 180 / Math.PI; break; } }
+            }
+          } else {
+            const near = enemyVec(id, b, st, R0 * 0.28), far = enemyVec(id, b, st, R0 * 1.5);
+            const eRot = (E) => upRot(E.v[0], E.v[1]);
+            if (path) {
+              const n = path.pts.length, d = [path.pts[n - 1][0] - path.pts[n - 2][0], path.pts[n - 1][1] - path.pts[n - 2][1]];
+              fin = upRot(d[0], d[1]);
+              if (near && b[5] !== 'rout') fin = eRot(near);
+            } else if (p == null) fin = far ? eRot(far) : (b[2] || 0);
+            else {
+              fin = p;
+              if (near && Math.abs(angleDiff(p, eRot(near))) > 50) fin = eRot(near);
+            }
+          }
+          if (p != null) fin = nearRot(fin, p);
+          out[id] = { fin };
+          prev[id] = fin;
+        });
+        H.push(out);
+      }
+      this.HD = H;
     }
     declutter() {
       // nudge overlapping unit labels apart (simple greedy vertical search)
@@ -452,6 +502,8 @@
     }
     stopAuto() { this.auto = false; clearTimeout(this.autoT); const b = this.ctl && this.ctl.querySelector('[data-a=play]'); if (b) b.textContent = '▶'; }
   }
+  function upRot(dx, dy) { return Math.atan2(dx, -dy) * 180 / Math.PI; }   // rotation that points the unit's front (up) along (dx,dy)
+  function nearRot(r, ref) { return ref + angleDiff(ref, r); }
   function angleDiff(a, b) { let d = (b - a) % 360; if (d > 180) d -= 360; if (d < -180) d += 360; return d; }
   function blend(from, to, e) {
     const out = {};

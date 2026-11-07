@@ -253,20 +253,6 @@ sup.fn a { text-decoration: none; font-size: .75em; }
 .topic .tt { font-weight: 700; font-size: 15px; }
 .topic .tb { padding: 2px 18px 14px; font-family: var(--article-font); font-size: calc(var(--fs) - 1px); line-height: 1.9; border-top: 1px dashed var(--rule); }
 .topic .tb p { margin: .8em 0; }
-.topic-trivia .tk { background: var(--gold); }
-.topic-voice { border-left: 3px solid #7a1f2b; }
-.topic-voice .tk { background: #7a1f2b; }
-.topic-source .tk { background: var(--verdigris); }
-.topic-life .tk { background: var(--olive); }
-.topic-debate .tk { background: var(--plum); }
-.topic-confuse .tk { background: var(--accent); }
-.topic-view .tk { background: var(--navy); }
-.topic-now .tk { background: #8a2f2f; }
-.topic-person .tk { background: var(--ink); }
-.topic-war .tk { background: #5b4a3a; }
-.topic-myth .tk { background: var(--accent); }
-.topic-works .tk { background: #3d6f8f; }
-.topic-mech .tk { background: #6a5d2b; }
 .topic-source .tb .orig { font-family: var(--font-mincho); color: var(--ink-2); font-size: .92em; border-left: 2px solid var(--verdigris); padding-left: .8em; }
 .topic .cite { font-size: 12px; color: var(--ink-3); font-family: var(--font-body); line-height: 1.6; }
 
@@ -288,6 +274,7 @@ ruby rt { font-size: .5em; letter-spacing: 0; font-weight: 400; }
 figure.img { margin: 1.4em 0; }
 figure.img img { display: block; width: 100%; height: auto; border-radius: 4px; background: var(--paper-2); min-height: 60px; }
 figure.img figcaption, figure.fig figcaption { font-family: var(--font-body); font-size: 12.5px; color: var(--ink-3); line-height: 1.6; margin-top: 6px; }
+figure.img.broken, figure.media.broken { display: none; }
 figure.img.broken img { display: none; }
 figure.img .fallback { display: none; padding: 16px; border: 1px dashed var(--rule); border-radius: 6px; font-size: 13px; }
 figure.img.broken .fallback { display: block; }
@@ -592,3 +579,34 @@ figure.media iframe.yt { aspect-ratio: 16 / 9; }
 .ytf .ytplay { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 68px; height: 48px; border: 0; border-radius: 12px; background: rgba(200,0,0,.9); color: #fff; font-size: 22px; cursor: pointer; }
 .ytf:hover .ytplay { background: #e00; }
 .ytf .ytnote { position: absolute; left: 0; right: 0; bottom: 0; padding: 6px 10px; background: rgba(0,0,0,.75); color: #fff; font-size: 12px; line-height: 1.5; }
+
+/* text / map divider */
+.lesson { position: relative; }
+.lsplit { position: absolute; top: 0; bottom: 0; width: 12px; margin-left: -6px; cursor: col-resize; z-index: 6; touch-action: none; }
+.lsplit span { position: sticky; top: calc(50vh - 22px); display: block; width: 6px; height: 44px; margin: 0 auto; border-radius: 3px; background: var(--rule); box-shadow: 0 0 0 1px var(--card); transition: background .15s; }
+.lsplit:hover span, .lsplit:focus-visible span, body.splitting .lsplit span { background: var(--accent, #b0412e); }
+.lsplit:focus { outline: none; }
+body.splitting { cursor: col-resize; user-select: none; }
+body.splitting iframe, body.splitting .lesson-stage { pointer-events: none; }
+@media (max-width: 900px) { .lsplit { display: none; } }
+
+/* topic families */
+.topic .tk b { font-weight: 700; }
+.topic .tk i { font-style: normal; font-weight: 500; margin-left: .45em; padding-left: .45em; border-left: 1px solid rgba(255,255,255,.55); }
+.tf-src .tk, .tchip.tf-src, .tfam.tf-src b { background: var(--verdigris); }
+.tf-deep .tk, .tchip.tf-deep, .tfam.tf-deep b { background: #5b4a3a; }
+.tf-think .tk, .tchip.tf-think, .tfam.tf-think b { background: var(--plum); }
+.tf-confuse .tk, .tchip.tf-confuse, .tfam.tf-confuse b { background: var(--accent); }
+.tf-now .tk, .tchip.tf-now, .tfam.tf-now b { background: #8a2f2f; }
+.tf-works .tk, .tchip.tf-works, .tfam.tf-works b { background: #3d6f8f; }
+.tf-music .tk, .tchip.tf-music, .tfam.tf-music b { background: #2f6b4f; }
+.topic.tf-music { border-left: 3px solid #2f6b4f; }
+.tf-side .tk, .tchip.tf-side, .tfam.tf-side b { background: var(--gold); }
+.topic.tf-src { border-left: 3px solid var(--verdigris); }
+.tchip { color: var(--paper) !important; border: 0 !important; }
+.tfams { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin: 0 0 14px; }
+.tfam { text-align: left; display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 8px; background: var(--card); color: var(--ink); cursor: pointer; font: inherit; }
+.tfam b { justify-self: start; white-space: nowrap; line-height: 1.6; color: var(--paper); font-size: 12px; padding: 1px 8px; border-radius: 3px; }
+.tfam span { font-size: 12.5px; color: var(--ink-2); line-height: 1.5; }
+.tfam em { font-style: normal; font-size: 12px; color: var(--ink-3); }
+.tfam.on { outline: 2px solid var(--accent); }
