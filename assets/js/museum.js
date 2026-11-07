@@ -26,7 +26,7 @@
       if (!params[0]) return this.list(view);
       const ex = (CM.museum || []).find(e => e.id === params[0]);
       if (!ex) { view.innerHTML = '<div class="wrap"><h1>展示が見つからない</h1><p><a href="#/museum">博物館へ戻る</a></p></div>'; return; }
-      return ex.sketchfab ? this.embed(view, ex) : this.viewer(view, ex);
+      return (ex.sketchfab || ex.models) ? this.embed(view, ex) : this.viewer(view, ex);
     },
     nav(ex) {
       const t = this.tour(), i = t.indexOf(ex), a = t[i - 1], b = t[i + 1];
@@ -42,14 +42,27 @@
         this.credit(ex) + this.nav(ex) + '</aside>';
     },
     embed(view, ex) {
-      const src = 'https://sketchfab.com/models/' + ex.sketchfab + '/embed?autostart=1&ui_theme=dark&dnt=1';
-      view.innerHTML = '<div class="mus"><div class="mus-stage mus-embed"><iframe title="' + CM.esc(ex.credit ? ex.credit.title : ex.title) + '" src="' + src + '" allow="autoplay; fullscreen; xr-spatial-tracking" allowfullscreen></iframe></div>' +
-        this.side(ex, '<div class="mus-ctl"><p class="muted mus-help">ドラッグで回転、右ドラッグ（2本指）で移動、ホイール（ピンチ）で拡大。ダブルクリックした場所に近づく。右下のボタンで全画面表示。この3Dモデルは、Sketchfabから読み込んで表示している。表示されない場合は、インターネットへの接続を確認するか、<a href="' + CM.esc(ex.credit.url) + '" target="_blank" rel="noopener">Sketchfabのページ</a>で見てほしい。</p></div>') + '</div>';
+      // an exhibit may hold several models (ex.models: [{id, label, credit, note}]) shown one at a time with tabs
+      const models = ex.models || [{ id: ex.sketchfab, credit: ex.credit }];
+      const srcOf = (m) => 'https://sketchfab.com/models/' + m.id + '/embed?autostart=1&ui_theme=dark&dnt=1';
+      const tabs = ex.models ? '<div class="mus-tabs" role="tablist">' + models.map((m, i) => '<button type="button" role="tab" data-i="' + i + '"' + (i ? '' : ' class="on" aria-selected="true"') + '>' + CM.esc(m.label) + '</button>').join('') + '</div><div class="mus-mnote"></div>' : '';
+      const help = '<p class="muted mus-help">ドラッグで回転、右ドラッグ（2本指）で移動、ホイール（ピンチ）で拡大。ダブルクリックした場所に近づく。右下のボタンで全画面表示。この3Dモデルは、Sketchfabから読み込んで表示している。表示されない場合は、インターネットへの接続を確認するか、<a class="mus-sflink" href="' + CM.esc(models[0].credit.url) + '" target="_blank" rel="noopener">Sketchfabのページ</a>で見てほしい。</p>';
+      view.innerHTML = '<div class="mus"><div class="mus-stage mus-embed"><iframe title="' + CM.esc(models[0].credit.title) + '" src="' + srcOf(models[0]) + '" allow="autoplay; fullscreen; xr-spatial-tracking" allowfullscreen></iframe></div>' +
+        this.side(Object.assign({}, ex, { credit: models[0].credit }), '<div class="mus-ctl">' + tabs + help + '</div>') + '</div>';
+      const show = (i) => {
+        const m = models[i], ifr = view.querySelector('.mus-embed iframe');
+        ifr.src = srcOf(m); ifr.title = m.credit.title;
+        view.querySelectorAll('.mus-tabs button').forEach((b, j) => { b.classList.toggle('on', j === i); b.setAttribute('aria-selected', j === i ? 'true' : 'false'); });
+        const note = view.querySelector('.mus-mnote'); if (note) note.innerHTML = m.note || '';
+        const cr = view.querySelector('.mus-credit'); if (cr) cr.outerHTML = this.credit({ credit: m.credit });
+        const lk = view.querySelector('.mus-sflink'); if (lk) lk.href = m.credit.url;
+      };
+      if (ex.models) { view.querySelectorAll('.mus-tabs button').forEach(b => b.addEventListener('click', () => show(+b.dataset.i))); show(0); }
       CM.bindInline(view);
     },
     tour() { return (CM.museum || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0)); },
     list(view) {
-      const badge = (e) => e.sketchfab ? '<span class="mus-badge web">オンラインで観察</span>' : '<span class="mus-badge walk">歩いて探検</span>';
+      const badge = (e) => (e.sketchfab || e.models) ? (e.models ? '<span class="mus-badge web">オンラインで観察（' + e.models.length + '点）</span>' : '<span class="mus-badge web">オンラインで観察</span>') : '<span class="mus-badge walk">歩いて探検</span>';
       view.innerHTML = '<div class="wrap"><div class="page-head"><h1>立体博物館・遺跡ツアー</h1><p>世界史の遺跡や建造物を3Dで観察する。時代順の順路で巡ることができる。「歩いて探検」の展示は、人や他の建造物と大きさを比べたり、人の目の高さで歩き回ったりできる（ファイルを開くだけで動く）。「オンラインで観察」の展示は、3Dモデル共有サイトSketchfabの公開モデルを埋め込んだもので、インターネットに接続しているときだけ表示される。</p></div>' +
         '<ol class="cards mus-tourlist">' + this.tour().map((e, i) => '<li><a class="card" href="#/museum/' + e.id + '"><div class="meta"><span class="num">' + (i + 1) + '. ' + CM.esc(e.era) + '</span><span>' + CM.esc(e.region) + '</span></div><h3>' + CM.esc(e.title) + '</h3><p>' + CM.esc(e.sum) + '</p><p class="muted" style="font-size:12px">' + badge(e) + ' ' + CM.esc(e.kindLabel || '') + '</p></a></li>').join('') + '</ol>' +
         '<div class="mus-note"><h3>3Dモデルについて</h3><p>写真1枚から自動生成したモデル（AI生成）は、写っていない背面・側面や細部が推定で補われており、形が正確とは限らない。展示ごとに「モデルの性格」を示している。柱の様式やピラミッドのように寸法の記録がはっきりしているものは、記録された寸法から図形として組み立てている（図形モデル）。</p></div></div>';
