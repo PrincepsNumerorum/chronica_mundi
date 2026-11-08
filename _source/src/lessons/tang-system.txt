@@ -193,6 +193,7 @@ question: 唐の律令体制とはどのようなしくみで、なぜ東アジ�
 !image file="Ancient Buddhist Grottoes at Longmen- Fengxian Temple, Vairocana Buddha.jpg" cap="龍門石窟の奉先寺の盧舎那仏（河南省洛陽市）。高宗の命で造営され、675年に完成した。高さ約17m。皇后の武則天が造営費を寄付したことが、銘文に記されている。その穏やかな顔は、武則天の顔をモデルにしたという俗説がある【俗説】。"
 
 !image file="A Tang Dynasty Empress Wu Zetian.JPG" cap="武則天の像。後世に描かれたもの。"
+!museum id="china-buddhist" m="3"
 
 705年、武則天が病に倒れると、宰相の張柬之らがクーデタを起こし、中宗を復位させた。国号は唐に戻り、武則天は同年、82歳で死んだ。武則天は、遺言で皇帝の称号を取り去り、「則天大聖皇后」として、夫の高宗の乾陵に合葬された。
 

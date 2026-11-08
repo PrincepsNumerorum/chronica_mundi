@@ -104,6 +104,40 @@ def commons_search(f):
 MEDIA_LOG = []
 NSFW_SEEN = [False]
 COMMONS_FP = 'https://commons.wikimedia.org/wiki/Special:FilePath/'
+
+# --- links from a lesson to the 3D museum: !museum id="exhibit" [m="model index"] ---
+MUSEUM = {}; MUSREFS = {}; CUR_LID = [None]
+def museum_meta():
+    if MUSEUM: return MUSEUM
+    import subprocess
+    js = ("global.CM={data:{museum:a=>{global.M=a}}};require(process.argv[1]);"
+          "console.log(JSON.stringify(M.map(e=>({id:e.id,title:e.title,era:e.era,sum:e.sum,web:!!(e.sketchfab||e.models),"
+          "models:(e.models||[]).map(m=>({name:m.name||m.label,label:m.label}))}))))")
+    out = subprocess.check_output(['node', '-e', js, os.path.join(OUT, 'museum', 'index.js')])
+    for e in json.loads(out): MUSEUM[e['id']] = e
+    return MUSEUM
+def museum_html(a):
+    M = museum_meta(); eid = a.get('id', ''); m = a.get('m', '')
+    e = M.get(eid)
+    if not e:
+        WARN.append('%s: unknown museum exhibit %s' % (CUR_LID[0], eid)); return ''
+    key = eid + ('/' + m if m != '' else '')
+    if m != '':
+        try: mm = e['models'][int(m)]
+        except Exception:
+            WARN.append('%s: bad museum model %s' % (CUR_LID[0], key)); return ''
+        name = re.sub(r'^[①-⑳]', '', mm['name']); sub = e['title'] + '（' + mm['label'][:1] + '）'
+    else:
+        name = e['title']; sub = e['era']
+    refs = MUSREFS.setdefault(key, [])
+    aid = 'mr-' + key.replace('/', '-')
+    if any(r[0] == CUR_LID[0] for r in refs): aid += '-%d' % len(refs)
+    refs.append([CUR_LID[0], aid])
+    href = '#/museum/' + eid + ('?m=' + m if m != '' else '')
+    kind = 'オンラインで観察' if e['web'] else '歩いて探検'
+    return ('<a class="musref" id="%s" href="%s"><span class="mr-ico" aria-hidden="true"></span><span class="mr-t"><small>立体博物館で見る｜%s</small>'
+            '<b>%s</b><span>%s</span></span><span class="mr-go" aria-hidden="true">→</span></a>'
+            % (aid, href, kind, H.escape(name), H.escape(sub)))
 CW_NOTE = ('<div class="cw-note"><b>閲覧注意</b>　この回には、遺体や飢餓、暴力の痕跡など、見る人によっては強い衝撃を受ける写真や映像が含まれている。'
            'これらにはぼかしをかけてあり、クリックすると表示される（画面右上の設定で、ぼかしを一括で外すこともできる）。'
            '歴史の事実を伝える記録として掲載している。</div>')
@@ -246,6 +280,9 @@ def render_paras(lines, ctx):
         if sq and s.startswith('-- '):
             sq.append(('--', None, s[3:].strip())); continue
         if sq: flush()
+        mz = re.match(r'^\s*!museum\b(.*)', s)
+        if mz:
+            flush(); out.append(museum_html(parse_attrs(mz.group(1)))); continue
         mm = re.match(r'^\s*!(image|video|audio)\b(.*)', s)
         if mm:
             flush(); out.append(media_html(mm.group(1), parse_attrs(mm.group(2)), ctx)); continue
@@ -305,6 +342,7 @@ def build_lesson(path, all_topics, search):
     text = open(path, encoding='utf-8').read().replace('\r\n', '\n')
     meta, body = parse_front(text)
     lid = meta.get('id') or os.path.splitext(os.path.basename(path))[0]
+    CUR_LID[0] = lid
     ctx = Ctx()
     lines = body.split('\n')
     scenes = [{'stage': None, 'parts': []}]
@@ -394,6 +432,8 @@ def build_lesson(path, all_topics, search):
             stage = stage_from(st, figures)
             scenes.append({'stage': stage, 'parts': []})
             i += 1; continue
+        if st.startswith('!museum'):
+            flush_para(); cur().append(museum_html(parse_attrs(st[7:]))); i += 1; continue
         if st.startswith('!image') or st.startswith('!video') or st.startswith('!audio'):
             flush_para()
             kind = st[1:6]
@@ -773,6 +813,7 @@ def main():
     build_battles(search)
     build_geo()
     write_js(os.path.join(OUT, 'topics.js'), 'CM.data.topics', topics)
+    write_js(os.path.join(OUT, 'museum', 'refs.js'), 'CM.data.musrefs', MUSREFS)
     write_js(os.path.join(OUT, 'search.js'), 'CM.data.search', search)
     print('terms', len(index), 'topics', len(topics))
     if missing: print('MISSING TERMS (%d):' % len(missing), '、'.join(missing))

@@ -341,7 +341,7 @@
     const ctl = H('div', 'wctl', host, '<label>数 <input type="number" class="wnum" min="1" max="3999" value="' + (p.n || 2026) + '"></label><span class="wpre">' + [4, 9, 14, 40, 90, 400, 1999, 2026].map(n => '<button type="button" data-n="' + n + '">' + n + '</button>').join('') + '</span>');
     const out = H('div', 'wout', host);
     const big = H('div', 'wbig', host);
-    big.style.cssText = 'font-family:var(--font-display);font-size:42px;letter-spacing:.08em;text-align:center;margin:8px 0';
+    big.style.cssText = 'font-family:var(--font-display);font-size:calc(42px * var(--ui,1));letter-spacing:.08em;text-align:center;margin:8px 0';
     const steps = H('div', 'wout', host);
     const V = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
     const conv = (n) => { let r = '', parts = []; for (const [v, s] of V) { while (n >= v) { r += s; n -= v; parts.push(s + '（' + v + '）'); } } return [r, parts]; };
@@ -1330,18 +1330,18 @@
     const big = H('div', '', box, '');
     big.style.cssText = 'flex:0 0 200px;text-align:center;padding:10px;border:1px solid var(--rule);border-radius:8px;background:var(--card)';
     const glyph = H('div', '', big, '');
-    glyph.style.cssText = FONT + ';font-size:88px;line-height:1.15;color:var(--gold);transition:opacity .25s';
+    glyph.style.cssText = FONT + ';font-size:calc(88px * var(--ui,1));line-height:1.15;color:var(--gold);transition:opacity .25s';
     const rom = H('div', '', big, '');
-    rom.style.cssText = 'font-size:20px;font-weight:700';
+    rom.style.cssText = 'font-size:calc(20px * var(--ui,1));font-weight:700';
     const ord = H('div', '', big, '');
-    ord.style.cssText = 'font-size:12px;color:var(--ink-3)';
+    ord.style.cssText = 'font-size:calc(12px * var(--ui,1));color:var(--ink-3)';
     const ctl = H('div', 'wctl', big, '<button type="button">▶ 母音を順に変える</button>');
     const tbl = H('table', '', box, '');
-    tbl.style.cssText = 'flex:1 1 360px;border-collapse:collapse;text-align:center;font-size:13px';
+    tbl.style.cssText = 'flex:1 1 360px;border-collapse:collapse;text-align:center;font-size:calc(13px * var(--ui,1))';
     let html = '<tr><th></th>' + V.map(v => '<th style="padding:2px 4px;color:var(--ink-3)">' + v + '</th>').join('') + '</tr>';
     CONS.forEach(([c, b], r) => {
       html += '<tr><th style="color:var(--ink-3);padding:2px 6px">' + c + '</th>';
-      for (let i = 0; i < 7; i++) html += '<td data-r="' + r + '" data-i="' + i + '" style="' + FONT + ';font-size:22px;padding:2px 4px;cursor:pointer;border:1px solid var(--rule)">' + String.fromCodePoint(b + i) + '</td>';
+      for (let i = 0; i < 7; i++) html += '<td data-r="' + r + '" data-i="' + i + '" style="' + FONT + ';font-size:calc(22px * var(--ui,1));padding:2px 4px;cursor:pointer;border:1px solid var(--rule)">' + String.fromCodePoint(b + i) + '</td>';
       html += '</tr>';
     });
     tbl.innerHTML = html;
@@ -1880,7 +1880,7 @@
   /* ================= pendentive: how a round dome sits on a square (Hagia Sophia) ================= */
   W.pendentive = function (host, p) {
     p = p || {};
-    const ctl = H('div', 'wctl', host, '<button type="button" class="wprev">◀</button><button type="button" class="wnext">次へ ▶</button><span class="wstep"></span><label style="margin-left:auto;font-size:12px">回転 <input type="range" min="-40" max="40" value="0" class="wrot"></label>');
+    const ctl = H('div', 'wctl', host, '<button type="button" class="wprev">◀</button><button type="button" class="wnext">次へ ▶</button><span class="wstep"></span><label style="margin-left:auto;font-size:calc(12px * var(--ui,1))">回転 <input type="range" min="-40" max="40" value="0" class="wrot"></label>');
     const svg = svgBox(host, 640, 390);
     const out = H('div', 'wout', host);
     const S0 = 76, CX = 320, CY = 292, h = 1.15;
@@ -2404,7 +2404,7 @@
   /* ================= eclipse: Aryabhata's shadow explanation of eclipses ================= */
   W.eclipse = function (host, p) {
     p = p || {};
-    const ctl = H('div', 'wctl', host, '<button type="button" class="wplay">❚❚ 停止</button> <button type="button" class="wsol">日食の位置へ</button> <button type="button" class="wlun">月食の位置へ</button> <label style="font-size:13px;margin-left:8px"><input type="checkbox" class="wmyth"> 神話の説明を表示</label>');
+    const ctl = H('div', 'wctl', host, '<button type="button" class="wplay">❚❚ 停止</button> <button type="button" class="wsol">日食の位置へ</button> <button type="button" class="wlun">月食の位置へ</button> <label style="font-size:calc(13px * var(--ui,1));margin-left:8px"><input type="checkbox" class="wmyth"> 神話の説明を表示</label>');
     const svg = svgBox(host, 640, 280);
     const out = H('div', 'wout', host, '');
     const SX = 70, SY = 140, EX = 360, EY = 140, R = 120, SQ = 0.38;
@@ -2685,7 +2685,7 @@
       water.setAttribute('d', `M0,${Math.min(y, 262)} L640,${Math.min(y, 262)} L640,300 L0,300 Z`);
       gfill.setAttribute('y', 100 - lv * 5.5); gfill.setAttribute('height', lv * 5.5);
       const mi = Math.floor(m), [sn, sc] = season(m);
-      mLab.textContent = MON[mi]; seaLab.textContent = sn; seaLab.setAttribute('style', 'font-size:13px;font-weight:700;fill:' + sc);
+      mLab.textContent = MON[mi]; seaLab.textContent = sn; seaLab.setAttribute('style', 'font-size:calc(13px * var(--ui,1));font-weight:700;fill:' + sc);
       // sirius: visible near dawn in July only
       const sv = m < 0.9 ? 1 - m / 0.9 : 0;
       sirius.setAttribute('transform', 'translate(520,' + (90 - sv * 40) + ')'); sirius.setAttribute('opacity', sv);

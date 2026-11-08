@@ -405,7 +405,7 @@
         '<dt>存続</dt><dd class="num">' + yr(pol.p.s) + '〜' + (pol.p.e > 2019 ? '' : yr(pol.p.e)) + '</dd>';
       leaders.slice(0, 6).forEach(l => { html += '<dt>' + CM.esc(l[0] || '指導者') + '</dt><dd>' + CM.esc(l[1]) + ' <span class="muted num">(' + yr(l[2]) + '–' + (l[3] > 2019 ? '' : yr(l[3])) + ')</span></dd>'; });
       html += '</dl>' + (term ? '<p style="margin:8px 0 0"><a href="#" data-term="' + CM.esc(term.h) + '">用語解説を開く</a></p>' : '') +
-        '<p class="muted" style="margin:8px 0 0;font-size:11px">範囲・名称は概略（World Historical Atlas）</p>';
+        '<p class="muted" style="margin:8px 0 0;font-size:calc(11px * var(--ui,1))">範囲・名称は概略（World Historical Atlas）</p>';
       const card = CM.h('div', { class: 'map-card' }, html);
       const x = CM.clamp(sx + 12, 8, this.cw - 330), yy = CM.clamp(sy - 20, 50, this.ch - 200);
       card.style.left = x + 'px'; card.style.top = yy + 'px';
@@ -767,7 +767,7 @@
         '<input class="yin" id="ayear" type="text" inputmode="numeric" aria-label="年（紀元前はマイナス）" title="年を入力（紀元前は -221 のようにマイナス）">' +
         '<input type="range" id="arange" min="0" max="1000" step="1" aria-label="年代">' +
         '<select id="aspeed" class="hide-s" aria-label="再生速度"><option value="0.5">とてもゆっくり（0.5年/秒）</option><option value="1">ゆっくり（1年/秒）</option><option value="3">やや遅く（3年/秒）</option><option value="8" selected>標準（8年/秒）</option><option value="25">速く（25年/秒）</option><option value="80">とても速く（80年/秒）</option></select>' +
-        '<span class="hide-s"><label style="font-size:13px"><input type="checkbox" id="alabels" checked> 国名</label> <label style="font-size:13px"><input type="checkbox" id="abattles" checked> 戦い</label> <label style="font-size:13px"><input type="checkbox" id="aevroll"> 年表</label> <button type="button" class="btn" id="aglobe">地球儀</button></span>' +
+        '<span class="hide-s"><label style="font-size:calc(13px * var(--ui,1))"><input type="checkbox" id="alabels" checked> 国名</label> <label style="font-size:calc(13px * var(--ui,1))"><input type="checkbox" id="abattles" checked> 戦い</label> <label style="font-size:calc(13px * var(--ui,1))"><input type="checkbox" id="aevroll"> 年表</label> <button type="button" class="btn" id="aglobe">地球儀</button></span>' +
         '<div class="era-ticks" id="aticks"></div></div></div>';
       const mapEl = document.getElementById('atlasmap');
       const roll = this.roll = new EventRoll(view.querySelector('.atlas'));

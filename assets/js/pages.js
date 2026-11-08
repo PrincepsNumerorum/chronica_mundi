@@ -80,7 +80,7 @@
     async render(view, params, q) {
       view.innerHTML = '<div class="wrap" style="max-width:none"><div class="page-head"><h1>同時代年表</h1><p>同じ時期に各地域で何が起きていたかを横に並べて見る。年を押すとその年の歴史地図が開く。</p></div>' +
         '<div class="filters"><select id="trange" aria-label="時代">' + RANGES.map((r, i) => '<option value="' + i + '">' + r[2] + '</option>').join('') + '</select>' +
-        '<span id="tregs" style="display:flex;flex-wrap:wrap;gap:4px 10px;font-size:13px">' + CM.REGION_KEYS.map(k => '<label><input type="checkbox" value="' + k + '" checked> ' + CM.REGION_JA[k] + '</label>').join('') + '</span>' +
+        '<span id="tregs" style="display:flex;flex-wrap:wrap;gap:4px 10px;font-size:calc(13px * var(--ui,1))">' + CM.REGION_KEYS.map(k => '<label><input type="checkbox" value="' + k + '" checked> ' + CM.REGION_JA[k] + '</label>').join('') + '</span>' +
         '<input id="tfind" type="search" placeholder="出来事を絞り込む" aria-label="出来事を絞り込む"></div><div class="tl-scroll"><div class="tl" id="tl"></div></div></div>';
       await CM.load('data/events.js');
       const sel = document.getElementById('trange');

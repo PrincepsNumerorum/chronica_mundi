@@ -521,11 +521,11 @@
       view.innerHTML = '<div class="battle-page"><div class="bp-field" id="bpfield"></div><div class="bp-info" id="bpinfo"></div></div>';
       const info = document.getElementById('bpinfo');
       const L = d.lesson && CM.lessonMeta(d.lesson);
-      info.innerHTML = '<div class="eyebrow">戦史</div><h1>' + CM.esc(d.ja) + '</h1><div class="muted" style="font-size:13px">' + CM.esc(d.en || '') + '</div>' +
+      info.innerHTML = '<div class="eyebrow">戦史</div><h1>' + CM.esc(d.ja) + '</h1><div class="muted" style="font-size:calc(13px * var(--ui,1))">' + CM.esc(d.en || '') + '</div>' +
         '<dl style="margin-top:12px"><dt>年月日</dt><dd>' + CM.esc(d.date) + '</dd><dt>場所</dt><dd>' + CM.esc(d.place) + '</dd><dt>結果</dt><dd>' + CM.esc(d.result) + '</dd>' +
         d.sides.map(s => '<dt style="color:' + sideCol(s.k, d.sides) + '">' + CM.esc(s.ja) + '</dt><dd>指揮：' + CM.esc(s.cmd || '') + '<br>兵力：' + CM.esc(s.str || '') + (s.loss ? '<br>損害：' + CM.esc(s.loss) : '') + '</dd>').join('') + '</dl>' +
-        '<div class="prose" style="font-size:15px;margin-top:14px">' + (d.html || '') + '</div>' +
-        '<h3 style="font-size:1rem;margin-top:18px">戦闘の段階</h3><ol style="padding-left:1.3em;font-size:14px">' + d.phases.map((p, i) => '<li><a href="#" data-i="' + i + '">' + CM.esc(p.title) + '</a></li>').join('') + '</ol>' +
+        '<div class="prose" style="font-size:calc(15px * var(--ui,1));margin-top:14px">' + (d.html || '') + '</div>' +
+        '<h3 style="font-size:1rem;margin-top:18px">戦闘の段階</h3><ol style="padding-left:1.3em;font-size:calc(14px * var(--ui,1))">' + d.phases.map((p, i) => '<li><a href="#" data-i="' + i + '">' + CM.esc(p.title) + '</a></li>').join('') + '</ol>' +
         (L ? '<p><a class="btn" href="#/lesson/' + d.lesson + '">講義「' + CM.esc(L.title) + '」で読む</a></p>' : '') +
         '<p><a class="btn" href="#/atlas/' + d.y + '">この年の歴史地図</a></p>' +
         (d.sources ? '<div class="sources"><h3 style="font-size:.95rem">出典・参考</h3><ol>' + d.sources.map(s => '<li>' + s + '</li>').join('') + '</ol></div>' : '');

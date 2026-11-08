@@ -265,6 +265,14 @@
         const t = document.getElementById(q.topic);
         if (t) { t.open = true; setTimeout(() => t.scrollIntoView({ block: 'center' }), 60); }
       }
+      // deep link from the museum to the place in the text where an exhibit appears
+      if (q && q.at) {
+        const t = document.getElementById(q.at);
+        if (t) {
+          const d = t.closest('details'); if (d) d.open = true;
+          setTimeout(() => { t.scrollIntoView({ block: 'center' }); t.classList.add('flash'); setTimeout(() => t.classList.remove('flash'), 2600); }, 80);
+        }
+      }
     },
     destroy() { if (this.onScroll) window.removeEventListener('scroll', this.onScroll); if (this.io2) this.io2.disconnect(); if (this.stage) this.stage.destroy(); this.stage = null; document.title = 'CHRONICA MUNDI 世界史講義アトラス'; }
   };

@@ -4,6 +4,7 @@
   const MODELS = {};
   CM.data.model = (id, b64) => { MODELS[id] = b64; };
   CM.data.museum = (arr) => { CM.museum = arr; };
+  CM.data.musrefs = (o) => { CM.musrefs = o; };
   // bbox of the exhibit proper, skipping helpers flagged userData.noBox (interiors, ghosts)
   const boxOf = (T, root) => { const bb = new T.Box3(); root.updateMatrixWorld(true); const walk = (o) => { if (o.userData && o.userData.noBox) return; if (o.isMesh) bb.union(new T.Box3().setFromObject(o)); o.children.forEach(walk); }; walk(root); return bb; };
   const b64ToBuf =(b64) => { const bin = atob(b64), n = bin.length, u = new Uint8Array(n); for (let i = 0; i < n; i++) u[i] = bin.charCodeAt(i); return u.buffer; };
@@ -21,12 +22,13 @@
   ];
 
   CM.pages.museum = {
-    async render(view, params) {
+    async render(view, params, q) {
       await CM.load('data/museum/index.js');
+      try { await CM.load('data/museum/refs.js'); } catch (e) { CM.musrefs = CM.musrefs || {}; }
       if (!params[0]) return this.list(view);
       const ex = (CM.museum || []).find(e => e.id === params[0]);
       if (!ex) { view.innerHTML = '<div class="wrap"><h1>展示が見つからない</h1><p><a href="#/museum">博物館へ戻る</a></p></div>'; return; }
-      return (ex.sketchfab || ex.models) ? this.embed(view, ex) : this.viewer(view, ex);
+      return (ex.sketchfab || ex.models) ? this.embed(view, ex, q || {}) : this.viewer(view, ex);
     },
     nav(ex) {
       const t = this.tour(), i = t.indexOf(ex), a = t[i - 1], b = t[i + 1];
@@ -36,36 +38,73 @@
       const c = ex.credit; if (!c) return '';
       return '<div class="mus-credit"><b>3Dモデル</b>：<a href="' + CM.esc(c.url) + '" target="_blank" rel="noopener">' + CM.esc(c.title) + '</a>（' + (c.authorUrl ? '<a href="' + CM.esc(c.authorUrl) + '" target="_blank" rel="noopener">' + CM.esc(c.author) + '</a>' : CM.esc(c.author)) + '、Sketchfab）' + (c.license ? '<br>ライセンス：' + (c.licenseUrl ? '<a href="' + CM.esc(c.licenseUrl) + '" target="_blank" rel="noopener">' + CM.esc(c.license) + '</a>' : CM.esc(c.license)) : '') + (c.note ? '<br>' + CM.esc(c.note) : '') + '</div>';
     },
-    side(ex, extra) {
-      return '<aside class="mus-side"><a class="muted" href="#/museum" style="font-size:13px">← 立体博物館・遺跡ツアー</a><h1>' + CM.esc(ex.title) + '</h1><div class="chips"><span class="chip num">' + CM.esc(ex.era) + '</span><span class="chip">' + CM.esc(ex.region) + '</span><span class="chip">' + CM.esc(ex.kindLabel || '') + '</span></div>' +
-        (extra || '') + '<div class="mus-body">' + ex.html + '</div>' + (ex.lessons ? '<div class="related">' + ex.lessons.map(id => { const L = CM.lessonMeta(id); return L ? '<a class="chip" href="#/lesson/' + id + '">講義：' + CM.esc(L.title) + '</a>' : ''; }).join('') + '</div>' : '') +
+    // the places in the lessons where this exhibit (or one model of it) is shown: key = 'id' or 'id/index'
+    refsHtml(key) {
+      const r = (CM.musrefs || {})[key] || [];
+      if (!r.length) return '';
+      return '<div class="mus-lref"><b>講義のこの場面に登場</b>' + r.map(([lid, aid]) => { const L = CM.lessonMeta(lid); return L ? '<a href="#/lesson/' + lid + '?at=' + aid + '">' + (L.no ? '<span class="num">' + CM.esc(L.no) + '</span> ' : '') + CM.esc(L.title) + ' <span aria-hidden="true">→</span></a>' : ''; }).join('') + '</div>';
+    },
+    side(ex, extra, after) {
+      return '<aside class="mus-side"><a class="muted" href="#/museum" style="font-size:calc(13px * var(--ui,1))">← 立体博物館・遺跡ツアー</a><h1>' + CM.esc(ex.title) + '</h1><div class="chips"><span class="chip num">' + CM.esc(ex.era) + '</span><span class="chip">' + CM.esc(ex.region) + '</span><span class="chip">' + CM.esc(ex.kindLabel || '') + '</span></div>' +
+        (extra || '') + (ex.models ? '<details class="mus-about"><summary>この展示室について</summary><div class="mus-body">' + ex.html + '</div></details>' : '<div class="mus-body">' + ex.html + '</div>' + this.refsHtml(ex.id)) + (after || '') +
+        (ex.lessons ? '<div class="related"><span class="muted" style="font-size:calc(12px * var(--ui,1))">関連する回：</span>' + ex.lessons.map(id => { const L = CM.lessonMeta(id); return L ? '<a class="chip" href="#/lesson/' + id + '">' + CM.esc(L.title) + '</a>' : ''; }).join('') + '</div>' : '') +
         this.credit(ex) + this.nav(ex) + '</aside>';
     },
-    embed(view, ex) {
-      // an exhibit may hold several models (ex.models: [{id, label, credit, note}]) shown one at a time with tabs
+    embed(view, ex, q) {
+      // an exhibit may hold several models (ex.models: [{id, label, name, credit, note}]) shown one at a time with tabs
       const models = ex.models || [{ id: ex.sketchfab, credit: ex.credit }];
       const srcOf = (m) => 'https://sketchfab.com/models/' + m.id + '/embed?autostart=1&ui_theme=dark&dnt=1';
-      const tabs = ex.models ? '<div class="mus-tabs" role="tablist">' + models.map((m, i) => '<button type="button" role="tab" data-i="' + i + '"' + (i ? '' : ' class="on" aria-selected="true"') + '>' + CM.esc(m.label) + '</button>').join('') + '</div><div class="mus-mnote"></div>' : '';
-      const help = '<p class="muted mus-help">ドラッグで回転、右ドラッグ（2本指）で移動、ホイール（ピンチ）で拡大。ダブルクリックした場所に近づく。右下のボタンで全画面表示。この3Dモデルは、Sketchfabから読み込んで表示している。表示されない場合は、インターネットへの接続を確認するか、<a class="mus-sflink" href="' + CM.esc(models[0].credit.url) + '" target="_blank" rel="noopener">Sketchfabのページ</a>で見てほしい。</p>';
-      view.innerHTML = '<div class="mus"><div class="mus-stage mus-embed"><iframe title="' + CM.esc(models[0].credit.title) + '" src="' + srcOf(models[0]) + '" allow="autoplay; fullscreen; xr-spatial-tracking" allowfullscreen></iframe></div>' +
-        this.side(Object.assign({}, ex, { credit: models[0].credit }), '<div class="mus-ctl">' + tabs + help + '</div>') + '</div>';
-      const show = (i) => {
-        const m = models[i], ifr = view.querySelector('.mus-embed iframe');
-        ifr.src = srcOf(m); ifr.title = m.credit.title;
+      let cur = Math.max(0, Math.min(models.length - 1, parseInt(q.m, 10) || 0));
+      const tabs = ex.models ? '<div class="mus-tabs" role="tablist">' + models.map((m, i) => '<button type="button" role="tab" data-i="' + i + '">' + CM.esc(m.label) + '</button>').join('') + '</div>' : '';
+      const help = '<p class="muted mus-help">ドラッグで回転、右ドラッグ（2本指）で移動、ホイール（ピンチ）で拡大。ダブルクリックした場所に近づく。右下のボタンで全画面表示。この3Dモデルは、Sketchfabから読み込んで表示している。表示されない場合は、インターネットへの接続を確認するか、<a class="mus-sflink" href="' + CM.esc(models[cur].credit.url) + '" target="_blank" rel="noopener">Sketchfabのページ</a>で見てほしい。</p>';
+      view.innerHTML = '<div class="mus"><div class="mus-stage mus-embed"><iframe title="' + CM.esc(models[cur].credit.title) + '" src="' + srcOf(models[cur]) + '" allow="autoplay; fullscreen; xr-spatial-tracking" allowfullscreen></iframe></div>' +
+        this.side(Object.assign({}, ex, { credit: models[cur].credit }), '<div class="mus-ctl">' + tabs + (ex.models ? '<article class="mus-mnote"></article><div class="mus-mrefs"></div>' : '') + help + '</div>') + '</div>';
+      const show = (i, first) => {
+        cur = i; const m = models[i], ifr = view.querySelector('.mus-embed iframe');
+        if (!first) { ifr.src = srcOf(m); ifr.title = m.credit.title; }
         view.querySelectorAll('.mus-tabs button').forEach((b, j) => { b.classList.toggle('on', j === i); b.setAttribute('aria-selected', j === i ? 'true' : 'false'); });
         const note = view.querySelector('.mus-mnote'); if (note) note.innerHTML = m.note || '';
+        const rf = view.querySelector('.mus-mrefs'); if (rf) rf.innerHTML = this.refsHtml(ex.id + '/' + i);
         const cr = view.querySelector('.mus-credit'); if (cr) cr.outerHTML = this.credit({ credit: m.credit });
         const lk = view.querySelector('.mus-sflink'); if (lk) lk.href = m.credit.url;
+        if (!first && history.replaceState) history.replaceState(null, '', '#/museum/' + ex.id + (i ? '?m=' + i : ''));
       };
-      if (ex.models) { view.querySelectorAll('.mus-tabs button').forEach(b => b.addEventListener('click', () => show(+b.dataset.i))); show(0); }
+      if (ex.models) { view.querySelectorAll('.mus-tabs button').forEach(b => b.addEventListener('click', () => show(+b.dataset.i))); show(cur, true); }
       CM.bindInline(view);
     },
-    tour() { return (CM.museum || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0)); },
+    // exhibits are grouped by era/region (section) and tagged with a genre
+    SECS: [['pre', '先史時代', '人類の誕生から農耕の始まりまで'], ['orient', '古代オリエント・エジプト', 'メソポタミア・エジプト・地中海東岸・ペルシア'], ['classic', '古代ギリシア・ローマ', 'エーゲ海から地中海世界へ'], ['asia', 'アジア', '南アジア・東南アジア・東アジア'], ['americas', 'アメリカ・オセアニア', ''], ['medieval', 'イスラーム世界と中世ヨーロッパ', ''], ['modern', '近世・近代・現代', '絶対王政から現代の戦争まで']],
+    GENRES: [['site', '遺跡・建造物'], ['art', '美術品・出土品'], ['doc', '文字の記録'], ['bone', '化石・人骨'], ['model', '復元・図解モデル']],
+    MAP: { 'hominin-skulls': ['pre', 'bone'], 'prehistory-items': ['pre', 'art'],
+      khufu: ['orient', 'site'], 'ziggurat-ur': ['orient', 'site'], 'abu-simbel': ['orient', 'site'], seshemnefer: ['orient', 'site'], 'valley-of-kings': ['orient', 'site'], 'rosetta-stone': ['orient', 'doc'], eshmun: ['orient', 'site'], 'petra-khazneh': ['orient', 'site'], masada: ['orient', 'site'], 'mesopotamia-treasures': ['orient', 'art'], 'assyria-persia-treasures': ['orient', 'art'], 'egypt-treasures': ['orient', 'art'],
+      orders: ['classic', 'model'], 'tholos-delphi': ['classic', 'model'], trireme: ['classic', 'model'], 'nike-samothrace': ['classic', 'art'], colosseum: ['classic', 'site'], corinth: ['classic', 'site'], 'rome-model': ['classic', 'model'], 'castel-santangelo': ['classic', 'site'], 'greek-treasures': ['classic', 'art'], 'roman-treasures': ['classic', 'art'],
+      ellora: ['asia', 'site'], 'bagan-1085': ['asia', 'site'], 'angkor-wat': ['asia', 'site'], ayutthaya: ['asia', 'site'], 'asia-treasures': ['asia', 'art'],
+      hochob: ['americas', 'site'], 'americas-treasures': ['americas', 'art'],
+      alhambra: ['medieval', 'site'], 'medieval-treasures': ['medieval', 'art'],
+      'red-square': ['modern', 'site'], chenonceau: ['modern', 'site'], versailles: ['modern', 'site'], 'modern-memories': ['modern', 'art'], 'chernihiv-library': ['modern', 'site'] },
+    secOf(e) { return (e.sec || (this.MAP[e.id] || [])[0]) || 'modern'; },
+    genreOf(e) { return (e.genre || (this.MAP[e.id] || [])[1]) || 'site'; },
+    tour() {
+      const si = (e) => this.SECS.findIndex(s => s[0] === this.secOf(e));
+      return (CM.museum || []).slice().sort((a, b) => (si(a) - si(b)) || ((a.order || 0) - (b.order || 0)));
+    },
     list(view) {
       const badge = (e) => (e.sketchfab || e.models) ? (e.models ? '<span class="mus-badge web">オンラインで観察（' + e.models.length + '点）</span>' : '<span class="mus-badge web">オンラインで観察</span>') : '<span class="mus-badge walk">歩いて探検</span>';
-      view.innerHTML = '<div class="wrap"><div class="page-head"><h1>立体博物館・遺跡ツアー</h1><p>世界史の遺跡や建造物を3Dで観察する。時代順の順路で巡ることができる。「歩いて探検」の展示は、人や他の建造物と大きさを比べたり、人の目の高さで歩き回ったりできる（ファイルを開くだけで動く）。「オンラインで観察」の展示は、3Dモデル共有サイトSketchfabの公開モデルを埋め込んだもので、インターネットに接続しているときだけ表示される。</p></div>' +
-        '<ol class="cards mus-tourlist">' + this.tour().map((e, i) => '<li><a class="card" href="#/museum/' + e.id + '"><div class="meta"><span class="num">' + (i + 1) + '. ' + CM.esc(e.era) + '</span><span>' + CM.esc(e.region) + '</span></div><h3>' + CM.esc(e.title) + '</h3><p>' + CM.esc(e.sum) + '</p><p class="muted" style="font-size:12px">' + badge(e) + ' ' + CM.esc(e.kindLabel || '') + '</p></a></li>').join('') + '</ol>' +
-        '<div class="mus-note"><h3>3Dモデルについて</h3><p>写真1枚から自動生成したモデル（AI生成）は、写っていない背面・側面や細部が推定で補われており、形が正確とは限らない。展示ごとに「モデルの性格」を示している。柱の様式やピラミッドのように寸法の記録がはっきりしているものは、記録された寸法から図形として組み立てている（図形モデル）。</p></div></div>';
+      const tour = this.tour(), gname = Object.fromEntries(this.GENRES);
+      let n = 0;
+      const card = (e) => { n++; return '<li data-g="' + this.genreOf(e) + '"><a class="card" href="#/museum/' + e.id + '"><div class="meta"><span class="num">' + n + '. ' + CM.esc(e.era) + '</span><span>' + CM.esc(e.region) + '</span></div><h3>' + CM.esc(e.title) + '</h3><p>' + CM.esc(e.sum) + '</p><p class="muted" style="font-size:calc(12px * var(--ui,1))"><span class="mus-genre">' + gname[this.genreOf(e)] + '</span> ' + badge(e) + '</p></a></li>'; };
+      const secs = this.SECS.map(s => { const items = tour.filter(e => this.secOf(e) === s[0]); if (!items.length) return ''; return '<section class="mus-sec" id="mus-' + s[0] + '"><h2>' + s[1] + (s[2] ? '<small>' + s[2] + '</small>' : '') + '</h2><ol class="cards mus-tourlist">' + items.map(card).join('') + '</ol></section>'; }).join('');
+      view.innerHTML = '<div class="wrap"><div class="page-head"><h1>立体博物館・遺跡ツアー</h1><p>世界史の遺跡や建造物、美術品を3Dで観察する。時代と地域ごとに7つの展示室に分け、番号の順に巡ることができる。「歩いて探検」の展示は、人や他の建造物と大きさを比べたり、人の目の高さで歩き回ったりできる（ファイルを開くだけで動く）。「オンラインで観察」の展示は、3Dモデル共有サイトSketchfabの公開モデルを埋め込んだもので、インターネットに接続しているときだけ表示される。</p></div>' +
+        '<nav class="mus-secnav">' + this.SECS.map(s => '<a href="#/museum" data-sec="' + s[0] + '">' + s[1] + '</a>').join('') + '</nav>' +
+        '<div class="mus-gfilter"><span class="muted">種類：</span><button type="button" class="on" data-g="">すべて</button>' + this.GENRES.map(g => '<button type="button" data-g="' + g[0] + '">' + g[1] + '</button>').join('') + '</div>' + secs +
+        '<div class="mus-note"><h3>3Dモデルについて</h3><p>写真1枚から自動生成したモデル（AI生成）は、写っていない背面・側面や細部が推定で補われており、形が正確とは限らない。展示ごとに「モデルの性格」を示している。柱の様式やピラミッドのように寸法の記録がはっきりしているものは、記録された寸法から図形として組み立てている（図形モデル）。博物館の収蔵品の中には、実物ではなく精巧な複製をスキャンしたものもある。</p></div></div>';
+      view.querySelectorAll('.mus-secnav a').forEach(a => a.addEventListener('click', (ev) => { ev.preventDefault(); const el = view.querySelector('#mus-' + a.dataset.sec); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
+      view.querySelectorAll('.mus-gfilter button').forEach(b => b.addEventListener('click', () => {
+        view.querySelectorAll('.mus-gfilter button').forEach(x => x.classList.toggle('on', x === b));
+        const g = b.dataset.g;
+        view.querySelectorAll('.mus-tourlist li').forEach(li => { li.hidden = !!g && li.dataset.g !== g; });
+        view.querySelectorAll('.mus-sec').forEach(sec => { sec.hidden = ![...sec.querySelectorAll('li')].some(li => !li.hidden); });
+      }));
     },
     async viewer(view, ex) {
       view.innerHTML = '<div class="mus"><div class="mus-stage"><canvas class="mus-cv"></canvas><div class="mus-labels"></div>' +

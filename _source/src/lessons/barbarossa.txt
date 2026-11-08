@@ -113,6 +113,7 @@ question: 人類の歴史上最大の陸上戦争となった独ソ戦は、な�
 !image file="RIAN archive 669663 Soviet troops head to front lines after 1941 Red Square parade.jpg" cap="赤の広場のパレードを終えて、そのまま前線へ向かうソ連軍の兵士たち（1941年11月7日）。"
 
 !video file="Stalin_Speech_1941_Red_Army_Parade_7_November_(English_Subtitles).webm" cap="赤の広場でのスターリンの演説（1941年11月7日、英語字幕付き）。なお、当日は撮影がうまくいかなかったため、演説の場面は後日あらためて撮り直されたといわれる。"
+!museum id="red-square"
 
 ## 日本と独ソ戦
 

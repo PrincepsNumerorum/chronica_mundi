@@ -146,6 +146,7 @@
     if (s.theme && s.theme !== 'system') root.setAttribute('data-theme', s.theme); else root.removeAttribute('data-theme');
     root.setAttribute('data-font', s.font || 'gothic');
     root.setAttribute('data-size', s.size || 'm');
+    root.setAttribute('data-ui', s.ui || 'm');
     if (s.ruby === false) root.setAttribute('data-ruby', 'off'); else root.removeAttribute('data-ruby');
     if (s.motion === 'reduced') root.setAttribute('data-motion', 'reduced'); else root.removeAttribute('data-motion');
     if (s.imp === false) root.setAttribute('data-imp', 'off'); else root.removeAttribute('data-imp');
@@ -161,15 +162,16 @@
     $('set-theme').value = s.theme || 'system';
     $('set-font').value = s.font || 'gothic';
     $('set-size').value = s.size || 'm';
+    $('set-ui').value = s.ui || 'm';
     $('set-ruby').checked = s.ruby !== false;
     $('set-motion').checked = s.motion === 'reduced';
     $('set-imp').checked = s.imp !== false;
     $('set-blur').checked = s.blur !== false;
     const save = () => {
-      const n = { theme: $('set-theme').value, font: $('set-font').value, size: $('set-size').value, ruby: $('set-ruby').checked, imp: $('set-imp').checked, blur: $('set-blur').checked, motion: $('set-motion').checked ? 'reduced' : 'auto' };
+      const n = { theme: $('set-theme').value, font: $('set-font').value, size: $('set-size').value, ui: $('set-ui').value, ruby: $('set-ruby').checked, imp: $('set-imp').checked, blur: $('set-blur').checked, motion: $('set-motion').checked ? 'reduced' : 'auto' };
       CM.storage.set('settings', n); applySettings(n);
     };
-    ['set-theme', 'set-font', 'set-size', 'set-ruby', 'set-imp', 'set-blur', 'set-motion'].forEach(id => $(id).addEventListener('change', save));
+    ['set-theme', 'set-font', 'set-size', 'set-ui', 'set-ruby', 'set-imp', 'set-blur', 'set-motion'].forEach(id => $(id).addEventListener('change', save));
     $('settingsbtn').addEventListener('click', () => { pop.hidden = !pop.hidden; });
     $('settingsclose').addEventListener('click', () => { pop.hidden = true; });
     if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => document.dispatchEvent(new CustomEvent('cm:theme')));
@@ -324,7 +326,7 @@
         '<div class="actions">' + (lastMeta ? '<a class="btn primary" href="#/lesson/' + last + '">続きから：' + CM.esc(lastMeta.title) + '</a>' : (avail[0] ? '<a class="btn primary" href="#/lesson/' + avail[0].id + '">最初の講義を読む</a>' : '')) +
         '<a class="btn" href="#/atlas">歴史地図を開く</a><a class="btn" href="#/battles">戦史を見る</a><a class="btn" href="#/about">凡例・出典</a></div></div>' +
         '<div><div class="today" id="today"><h3>今日は何の日</h3><ul><li class="muted">読み込み中…</li></ul></div></div></section>';
-      html += '<div class="home-grid"><section><h2 style="margin:0 0 4px;font-size:1.3rem">講義目次</h2><p class="muted" style="margin:0 0 6px;font-size:13px">全' + (C ? C.parts.reduce((a, p) => a + p.lessons.length, 0) : 0) + '回（公開中 ' + avail.length + '回）。灰色の回は準備中。</p>';
+      html += '<div class="home-grid"><section><h2 style="margin:0 0 4px;font-size:1.3rem">講義目次</h2><p class="muted" style="margin:0 0 6px;font-size:calc(13px * var(--ui,1))">全' + (C ? C.parts.reduce((a, p) => a + p.lessons.length, 0) : 0) + '回（公開中 ' + avail.length + '回）。灰色の回は準備中。</p>';
       if (C) C.parts.forEach((p, i) => {
         const ready = p.lessons.filter(l => l.ready).length;
         html += '<details class="part"' + (ready ? ' open' : '') + '><summary><span class="part-no">' + CM.esc(p.no) + '</span><span class="part-title">' + CM.esc(p.title) + '<small>' + CM.esc(p.period) + '</small></span><span class="part-count">' + ready + ' / ' + p.lessons.length + '</span></summary><ol class="lessons">';
@@ -340,7 +342,7 @@
       const rt = document.getElementById('randtopic');
       if (CM.topics.length) {
         const t = CM.topics[Math.floor(Math.random() * CM.topics.length)];
-        rt.innerHTML = '<h3>トピックスから</h3><div><span class="chip">' + CM.esc(t.kj) + '</span> <a href="#/lesson/' + t.l + '?topic=' + t.id + '"><b>' + CM.esc(t.t) + '</b></a><p class="muted" style="font-size:13px;margin:6px 0 0">' + CM.esc(t.x) + '…</p></div>';
+        rt.innerHTML = '<h3>トピックスから</h3><div><span class="chip">' + CM.esc(t.kj) + '</span> <a href="#/lesson/' + t.l + '?topic=' + t.id + '"><b>' + CM.esc(t.t) + '</b></a><p class="muted" style="font-size:calc(13px * var(--ui,1));margin:6px 0 0">' + CM.esc(t.x) + '…</p></div>';
       }
       // today in history
       try {
