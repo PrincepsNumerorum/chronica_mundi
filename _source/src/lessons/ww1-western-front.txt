@@ -66,6 +66,16 @@ question: なぜ西部戦線の戦いは4年もの間、膠着し、おびただ
 オーエンは、休戦のわずか1週間前の1918年11月4日、戦死した。休戦を知らせる教会の鐘が鳴り響く日に、彼の母は、息子の戦死の電報を受け取った。
 :::
 
+:::topic voice | 「この戦争は、終わらせる力を持つ者によって長引かされている」――サスーンの宣言
+勇敢さで勲章を受けたイギリスの将校で詩人のシーグフリード・サスーンは、1917年6月、軍の上官に宛てて一通の声明を書いた。声明は7月に議会で読み上げられ、新聞にも載った。
+
+>原[en] I am making this statement as an act of wilful defiance of military authority, because I believe that the War is being deliberately prolonged by those who have the power to end it.
+>訳 私は、軍の権威に対する意図的な反抗として、この声明を出す。この戦争は、それを終わらせる力を持つ者たちによって、わざと長引かされていると信じるからである。
+-- 出典：シーグフリード・サスーン「兵士の宣言」（1917年）。本サイト訳
+
+軍は、サスーンを軍法会議にかける代わりに、「戦争神経症」として病院に送った。友人の詩人グレイヴズが、処罰を避けるために奔走したのである。サスーンはその病院で若い将校ウィルフレッド・オーエンと出会い、オーエンの詩作を励ました。サスーンは、翌年、自ら望んで前線に戻った。
+:::
+
 ### 戦車と飛行機
 
 膠着した塹壕戦を打ち破るために、イギリスは、鉄条網を踏みつぶし、塹壕を乗り越えて進む、装甲で覆われたキャタピラ付きの車両を開発した。開発は極秘で進められ、工場では「水槽（タンク）」を造っていると偽った。これが、「戦車（タンク）」という名の由来である。戦車は、1916年9月、ソンムの戦いで初めて使われた。
@@ -280,6 +290,7 @@ k: 世界史講義録（第一次世界大戦の展開）
 c: W・オーエン「甘美にして名誉なるかな」、W・ウィルソンの議会演説（1917年4月2日）、ツィンメルマン電報（1917年）、ルーデンドルフ『わが戦争の思い出』
 r: 木村靖二『第一次世界大戦』ちくま新書；山室信一ほか編『現代の起点 第一次世界大戦』岩波書店；M・ミドルブルック『ソンムの初日』（英文）；J・キーガン『第一次世界大戦』中央公論新社；S・ウェイントラウブ『サイレント・ナイト』（英文）
 w: Wikipedia "Christmas truce" "Western Front (World War I)" "Second Battle of Ypres" "Fritz Haber" "Battle of Verdun" "Battle of the Somme" "First day on the Somme" "Total war" "Turnip Winter" "Sinking of the RMS Lusitania" "Zimmermann Telegram" "Kiel mutiny" "Armistice of 11 November 1918" "Henry Gunther" "World War I casualties"
+v: 本回で引いた史料・証言（追加分）：Siegfried Sassoon, "Finished with the War: A Soldier's Declaration"（1917年6月；7月30日下院で朗読、7月31日 The Times 掲載）.
 :::
 
 :::geo

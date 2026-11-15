@@ -1,4 +1,4 @@
-/* CHRONICA MUNDI map engine: twha territory raster (equirectangular, 10 px/deg) + Natural Earth vectors + animated overlays */
+/* PARALLAX map engine: twha territory raster (equirectangular, 10 px/deg) + Natural Earth vectors + animated overlays */
 (function () {
   'use strict';
   const T = 450, NX = 8, NY = 4, W = T * NX, H = T * NY; // world pixel space at scale 1 (10 px per degree)
@@ -342,6 +342,11 @@
       });
       el.addEventListener('pointermove', (e) => {
         if (!ptrs.has(e.pointerId)) {
+          // hovering a marker whose label was hidden by collision avoidance still names it
+          const hp = this.ov.places.find(p => { const s = this.worldToScreen(p.x, p.y); return Math.hypot(s[0] - e.offsetX, s[1] - e.offsetY) < 10; });
+          const tip = hp ? hp.ja + (hp.note ? ' ' + hp.note : '') : '';
+          if (el.title !== tip) el.title = tip;
+          el.style.cursor = hp && hp.href ? 'pointer' : '';
           if (this.opts.interactive) { const [wx, wy] = this.screenToWorld(e.offsetX, e.offsetY); this.hover = [wx, wy]; }
           return;
         }
@@ -673,7 +678,7 @@
         const txt = p.ja + (p.note ? ' ' + p.note : '');
         const c0 = [[8, -7, 'left'], [-8, -7, 'right'], [8, 8, 'left'], [-8, 8, 'right'], [0, -15, 'center'], [0, 15, 'center'], [10, -19, 'left'], [-10, -19, 'right'], [10, 20, 'left'], [-10, 20, 'right'], [0, -28, 'center'], [0, 28, 'center']];
         if (p.lx != null || p.ly != null) { const dx = p.lx != null ? p.lx : 8, dy = p.ly != null ? p.ly : -7; c0.unshift([dx, dy, dx < 0 ? 'right' : dx > 0 ? 'left' : 'center']); }
-        Q.push({ pri: k === 'capital' ? 0 : 1, text: txt, x: s[0], y: s[1], size: p.size || 12.5, color: ink, weight: k === 'capital' ? '700' : '500', cands: c0, must: k === 'capital' || k === 'battle' || k === 'event', alpha: fa });
+        Q.push({ pri: k === 'capital' ? 0 : 1, text: txt, x: s[0], y: s[1], size: p.size || 12.5, color: ink, weight: k === 'capital' ? '700' : '500', cands: c0, must: k === 'capital' || ((k === 'battle' || k === 'event') && this.ov.places.length <= 14), alpha: fa });
         g.globalAlpha = 1;
       }
       // ---- collision-aware label placement ----

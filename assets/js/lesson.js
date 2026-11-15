@@ -142,7 +142,7 @@
         }
       }
       const L = CM.lessons[id];
-      document.title = L.title + '｜CHRONICA MUNDI';
+      document.title = L.title + '｜PARALLAX';
       const part = meta && meta.part;
       let html = '<div class="lesson"><article class="lesson-article" id="lart"><header class="lesson-head">' +
         '<div class="eyebrow"><span>' + CM.esc(part ? part.no + '　' + part.title : '') + '</span><span>第' + CM.esc(L.no || (meta && meta.no) || '') + '回</span></div>' +
@@ -274,6 +274,6 @@
         }
       }
     },
-    destroy() { if (this.onScroll) window.removeEventListener('scroll', this.onScroll); if (this.io2) this.io2.disconnect(); if (this.stage) this.stage.destroy(); this.stage = null; document.title = 'CHRONICA MUNDI 世界史講義アトラス'; }
+    destroy() { if (this.onScroll) window.removeEventListener('scroll', this.onScroll); if (this.io2) this.io2.disconnect(); if (this.stage) this.stage.destroy(); this.stage = null; document.title = 'PARALLAX — 視差で読む世界史'; }
   };
 })();

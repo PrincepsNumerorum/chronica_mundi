@@ -94,6 +94,18 @@ question: フランス革命は、なぜ国王を処刑し、恐怖政治にま�
 
 !image file="Jacques-Louis David - Marie Antoinette on the Way to the Guillotine.jpg" cap="処刑場に向かう荷車の上のマリー・アントワネット（ジャック＝ルイ・ダヴィッドのスケッチ、1793年10月16日、パリ、ルーヴル美術館）。ジャコバン派の画家ダヴィッドが、窓から見て描いた。髪を短く刈られ、手を後ろで縛られた、かつての王妃の姿である。"
 
+:::topic voice | 「妹よ、あなたに最後の手紙を書きます」――マリー＝アントワネットの遺書
+1793年10月16日の未明、前日に死刑判決を受けた王妃マリー＝アントワネットは、牢獄で、夫ルイ16世の妹エリザベートに宛てて手紙を書いた。
+
+>原[fr] C'est à vous, ma sœur, que j'écris pour la dernière fois. Je viens d'être condamnée, non pas à une mort honteuse, elle ne l'est que pour les criminels, mais à aller rejoindre votre frère.
+>訳 妹よ、あなたに最後の手紙を書きます。私はいま判決を受けました。けれども、それは恥ずべき死ではありません。死が恥であるのは、罪人にとってだけです。私は、あなたのお兄さまのもとへ行くのです。
+-- 出典：マリー＝アントワネットのエリザベート宛書簡（1793年10月16日）。本サイト訳
+
+手紙は、残していく子どもたちへの思い、自分に不利な証言に署名させられた幼い息子への赦し、そして、敵たちが自分にしたすべての悪を赦すという言葉で結ばれている。しかし、この手紙がエリザベートに届くことはなかった。役人に取り上げられてロベスピエールの手に渡り、世に知られたのは、王政が復活した後の1816年のことである。エリザベートも、翌1794年5月にギロチンで処刑された。
+
+同じ朝、王妃が祈祷書の余白に「神さま、私をあわれんでください。私の目には、かわいそうな子どもたちのために流す涙も、もうありません。さようなら、さようなら」と書き残したとも伝えられる【伝承】。その日の昼、37歳の王妃は荷車で革命広場へ運ばれ、処刑された。
+:::
+
 ## 恐怖政治
 
 ### 内外の危機
@@ -239,4 +251,5 @@ k: 世界史講義録（フランス革命の展開）
 c: ルージェ・ド・リール「ラ・マルセイエーズ」（1792年）、ブラウンシュヴァイク宣言（1792年）、サン・ジュスト「国王裁判についての演説」（1792年）、ロベスピエール「政治道徳の諸原理について」（1794年2月5日）、国民総動員令（1793年8月23日）、ゲーテ『フランス従軍記』
 r: 遅塚忠躬『フランス革命』岩波ジュニア新書；松浦義弘『ロベスピエール』山川出版社（世界史リブレット人）、2018年；安達正勝『死刑執行人サンソン』集英社新書、2003年；D. Greer, "The Incidence of the Terror during the French Revolution", 1935
 w: Wikipedia "War of the First Coalition" "La Marseillaise" "10 August (French Revolution)" "Lion Monument" "September Massacres" "Battle of Valmy" "Execution of Louis XVI" "Reign of Terror" "Maximilien Robespierre" "Levée en masse" "Guillotine" "French Republican calendar" "The Death of Marat"
+v: 本回で引いた史料・証言（追加分）：Lettre de Marie-Antoinette à Madame Élisabeth, 16 octobre 1793（Archives nationales）.
 :::

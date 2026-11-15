@@ -63,6 +63,7 @@ question: ムハンマドの死後、わずか30年ほどの間に、アラブ�
 @battle yarmuk phase=0
 
 この戦いで、ビザンツ帝国は、シリアを永久に失った。638年には、エルサレムも降伏した。
+!museum id="christian-treasures" m="2"
 
 @battle yarmuk phase=4
 

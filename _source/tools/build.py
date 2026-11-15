@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CHRONICA MUNDI content build: src/ (lesson/term/battle markup) -> site/data/*.js
+"""PARALLAX content build: src/ (lesson/term/battle markup) -> site/data/*.js
 
 Lesson markup (src/lessons/<id>.txt)
   front matter between '---' lines (key: value)
@@ -564,6 +564,7 @@ def build_terms(term_use):
         if alias: t['a'] = alias
         if meta.get('img'): t['i'] = meta['img'].replace('File:', '').strip().replace(' ', '_')
         if meta.get('imgcap'): t['ic'] = meta['imgcap']
+        if meta.get('wiki'): t['w'] = meta['wiki'].strip()  # Japanese Wikipedia title override ('-' = do not look up)
         t['_body'] = htm
         index.append(t); names[h] = t
         for a in alias: names.setdefault(a, t)

@@ -46,6 +46,7 @@
       const tp = document.getElementById('tp');
       tp.innerHTML = await CM.renderTerm(name);
       CM.bindInline(tp);
+      CM.wikiEnrich(tp, CM.findTerm(name));
     }
   };
 

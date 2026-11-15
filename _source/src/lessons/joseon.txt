@@ -71,6 +71,8 @@ question: 李成桂が開いた朝鮮王朝は、どのような国を目指し�
 !image file="BoRuGak Jagyeongnu.JPG" cap="自撃漏（復元、ソウルの国立古宮博物館）。水の流れを利用して、時刻になると人形が鐘や太鼓を鳴らして時を知らせる。"
 
 !image file="Jang Yeong-sil Science Garden-Rain Gauges 13-11789 Busan, South Korea 03.JPG" cap="測雨器（復元、釜山）。円筒形の器にたまった雨の深さを、物差しで測った。全国で統一された規格の雨量計による観測は、世界でも早い例である。"
+!museum id="korea-treasures" m="6"
+!museum id="korea-treasures" m="7"
 
 しかし、1442年、蔣英実が製作を監督した国王の輿が、世宗が乗っている最中に壊れるという事件が起きた。蔣英実は罰せられて職を解かれ、その後の消息は、記録から消えてしまった。
 :::

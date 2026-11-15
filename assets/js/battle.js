@@ -316,16 +316,16 @@
           else if (P2.path) {
             // move continuously; the facing eases from the old heading into the direction of travel, follows the path, then settles into the final facing
             const ship = el.u.t === 'ships', L = P2.path.L;
-            const u = ease(CM.clamp((t - 0.06) / 0.86, 0, 1)), sNow = u * L;
+            const u = ease(CM.clamp(t / 0.92, 0, 1)), sNow = u * L;
             const q = posAt(P2.path, sNow);
             let r = P2.path.h0;
-            if (P2.turns || ship) {
+            if (ship) {
               const dl = Math.min(18, L * 0.08), q1 = posAt(P2.path, sNow - dl), q2 = posAt(P2.path, sNow + dl);
               if (Math.hypot(q2[0] - q1[0], q2[1] - q1[1]) > 1e-6) r = nearRot(ship ? Math.atan2(q2[1] - q1[1], q2[0] - q1[0]) * 180 / Math.PI : upRot(q2[0] - q1[0], q2[1] - q1[1]), P2.lastR != null ? P2.lastR : P2.path.h0);
               P2.lastR = r;
-              r = mixA(r, a[2], 1 - smooth(t / 0.24));
-              r = mixA(r, P2.fin, smooth((t - 0.74) / 0.26));
-            } else r = P2.fin;
+              r = mixA(r, a[2], 1 - smooth(t / 0.12));
+              r = mixA(r, P2.fin, smooth((t - 0.8) / 0.2));
+            } else r = mixA(a[2], P2.fin, smooth(t));
             s = [q[0], q[1], r, a[3] + (b[3] - a[3]) * smooth(t), a[4] + (b[4] - a[4]) * smooth(t)];
           } else {
             const e = ease(t);
@@ -415,17 +415,9 @@
               for (let j = k + 1; j < N; j++) { const q = states[j][id]; if (q && Math.hypot(q[0] - b[0], q[1] - b[1]) > 4) { fin = Math.atan2(q[1] - b[1], q[0] - b[0]) * 180 / Math.PI; break; } }
             }
           } else {
-            const near = enemyVec(id, b, st, R0 * 0.28), far = enemyVec(id, b, st, R0 * 1.5);
-            const eRot = (E) => upRot(E.v[0], E.v[1]);
-            if (path) {
-              const n = path.pts.length, d = [path.pts[n - 1][0] - path.pts[n - 2][0], path.pts[n - 1][1] - path.pts[n - 2][1]];
-              fin = upRot(d[0], d[1]);
-              if (near && b[5] !== 'rout') fin = eRot(near);
-            } else if (p == null) fin = far ? eRot(far) : (b[2] || 0);
-            else {
-              fin = p;
-              if (near && Math.abs(angleDiff(p, eRot(near))) > 50) fin = eRot(near);
-            }
+            // land units keep the facing given in the data: they slide along their route instead of
+            // swinging round to point at the direction of travel (that read as the block "standing up" before moving)
+            fin = p != null ? p : (b[2] || 0);
           }
           if (p != null) fin = nearRot(fin, p);
           out[id] = { fin };
